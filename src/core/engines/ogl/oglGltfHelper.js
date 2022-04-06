@@ -289,24 +289,25 @@ export function createGltfProgram(node) {
     });
 
     const vertexPrefix = renderer.isWebgl2
-        ? /* glsl */ `#version 300 es
+        ? /* glsl */
+        `#version 300 es
         #define attribute in
         #define varying out
-        #define texture2D texture
-    `
-        : ``;
+        #define texture2D texture`
+        :
+        ``;
 
     const fragmentPrefix = renderer.isWebgl2
-        ? /* glsl */ `#version 300 es
+        ? /* glsl */
+        `#version 300 es
         precision highp float;
         #define varying in
         #define texture2D texture
         #define gl_FragColor FragColor
-        out vec4 FragColor;
-    `
-        : /* glsl */ `#extension GL_OES_standard_derivatives : enable
-        precision highp float;
-    `;
+        out vec4 FragColor;`
+        : /* glsl */
+        `#extension GL_OES_standard_derivatives : enable
+        precision highp float;`;
 
     let defines = `
         ${node.geometry.attributes.uv ? `#define UV` : ``}
@@ -319,7 +320,7 @@ export function createGltfProgram(node) {
         ${gltf.metallicRoughnessTexture ? `#define RM_MAP` : ``}
         ${gltf.occlusionTexture ? `#define OCC_MAP` : ``}
         ${gltf.emissiveTexture ? `#define EMISSIVE_MAP` : ``}
-    `;
+        `;
 
     vertex = vertexPrefix + defines + vertex;
     fragment = fragmentPrefix + defines + fragment;

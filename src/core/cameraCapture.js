@@ -191,10 +191,11 @@ export function drawCameraCaptureScene(gl, cameraTexture) {
     gl.vertexAttribPointer(aCoordLoc, 3, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(aCoordLoc);
 
-    // Bind the texture to texture unit 0
-    gl.activeTexture(gl.TEXTURE0);
+    // Bind the texture to texture unit (max_texture_units - 1) // 0
+    const max_texture_units = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+    gl.activeTexture(gl.TEXTURE0 + 7);
     gl.bindTexture(gl.TEXTURE_2D, cameraTexture);
-    gl.uniform1i(uSamplerLoc, 0);
+    gl.uniform1i(uSamplerLoc, 7); //gl.uniform1i(uSamplerLoc, 0);
 
     // Draw the single point
     gl.drawArrays(gl.POINTS, 0, 1);

@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Texture, Transform, Vec2} from 'ogl';
 import {createGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
@@ -26,6 +26,8 @@ let _localImagePose;
 let experimentTapHandler = null;
 let lastTime = 0;
 
+// Workaround that OGL Texture IDs should start above the camera texture ID
+let dummyTexture = null;
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -47,6 +49,10 @@ export default class ogl {
         gl.clearColor(0, 0, 0, 0);
 
         scene = new Transform();
+
+        // Workaround that texture IDs in OGL are given from 1 counting up.
+        // However, our camera texture should be the one with index 1. So we increase Texture.ID by 1 here.
+        dummyTexture = new Texture(gl);
 
         this.setupEnvironment(gl);
 
