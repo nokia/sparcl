@@ -14,6 +14,7 @@ import {supportedCountries} from '@oarc/ssd-access';
 
 export const toRadians = (degrees) => degrees / 180 * Math.PI;
 export const toDegrees = (radians) => radians / Math.PI * 180;
+export const kOscpDefaultH3level = 8;
 
 export const locationAccessOptions = {
     enableHighAccuracy: false,
@@ -101,7 +102,7 @@ export function getCurrentLocation() {
                 .then((data) => {
                     const countryCode = data.address.country_code;
                     resolve({
-                        h3Index: h3.geoToH3(latAngle, lonAngle, 8),
+                        h3Index: h3.geoToH3(latAngle, lonAngle, kOscpDefaultH3level),
                         lat: latAngle,
                         lon: lonAngle,
                         countryCode: countryCode,
@@ -118,6 +119,70 @@ export function getCurrentLocation() {
             reject(error);
         }, locationAccessOptions);
     });
+}
+
+export function isCloseToHexagonBoundary(latitude, longitude) {
+    // Get current index
+    const h3Index = h3.geoToH3(latitude, longitude, kOscpDefaultH3level)
+
+    // Get the center of the hexagon
+    const hexCenterPoint = h3.h3ToGeo(h3Index);
+    // -> [37.35171820183272, -122.05032565263946]
+
+    // Get the vertices of the hexagon
+    const hexBoundaryPoints = h3.h3ToGeoBoundary(h3Index);
+    // -> [ [37.341099093235684, -122.04156135164334 ], ...]
+    // WARNING: some cells are pentagons!
+
+    let closeToBorder = false;
+    let minDist = h3.pointDist(hexCenterPoint, [latitude, longitude], UNITS.m);
+    let closestPoint = hexCenterPoint;
+    for (let i = 0; i < hexBoundaryPoints.length; i++) {
+        let dist = h3.pointDist(hexCenterPoint, hexBoundaryPoints[i], UNITS.m);
+        // we say the point is close to the border if it is closer to any border vertex than to the center
+        if (dist < minDist) {
+            minDist = dist;
+            closestPoint = hexBoundaryPoints[i];
+            closeToBorder = true;
+        }
+    }
+    // we could return the closest point too
+    return closeToBorder;
+}
+
+export function get2ClosestH3Neighbors(latitude, longitude) {
+    // Get current index
+    const h3Index = h3.geoToH3(latitude, longitude, kOscpDefaultH3level)
+    
+    // Get all neighbors within 1 step of the hexagon
+    const kRing = h3.kRing(h3Index, 1);
+
+    let firstClosestDistance = Number.MAX_SAFE_INTEGER;
+    let firstClosestCell = h3Index;
+    let secondClosestDistance = Number.MAX_SAFE_INTEGER;
+    let secondClosestCell = h3Index;
+    for (let i = 0; i < kRing.length; i++) {
+        const hexNeighborCenterPoint = h3.h3ToGeo(kRing[i]);
+        let distance = h3.pointDist(pointInCell, hexNeighborCenterPoint, UNITS.m);
+        if (distance < secondClosestDistance) {
+            secondClosestDistance = distance;
+            secondClosestCell = kRing[i];
+        }
+        if (distance < firstDistance) {
+            secondClosestDistance = firstClosestDistance;
+            secondClosestCell = firstClosestCell;
+            firstClosestDistance = distance;
+            firstClosestCell = kRing[i];
+        }
+    }
+    return [firstClosestCell, secondClosestCell]
+}
+
+export function getH3Neighbors(h3Index) {
+    // Get all neighbors within 1 step of the hexagon
+    const kRing = h3.kRing(h3Index, 1);
+    // -> ['87283472bffffff', '87283472affffff', ...]
+    return kRing;
 }
 
 /**
