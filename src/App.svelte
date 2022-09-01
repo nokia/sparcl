@@ -20,7 +20,7 @@
     import Selector from '@experiments/Selector';
 
     import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
-        initialLocation, isLocationAccessAllowed, showDashboard, ssr} from './stateStore';
+        initialLocation, isLocationAccessAllowed, selectedP2pService, showDashboard, ssr} from './stateStore';
     import {ARMODES} from "./core/common";
 
     import {logToElement} from '@src/core/devTools';
@@ -67,6 +67,7 @@
                             console.error("Cannot determine SSD URL!");
                             throw new Error("Cannot determine SSD URL!");
                         }
+                        // TODO: we could also query all the neighboring hexagons
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
                     .then(services => {
@@ -98,8 +99,9 @@
                     if (!p2p) {
                         p2p = p2pModule;
 
-                        // TODO: take selectedP2pService, not the 0th service
-                        const headlessPeerId = $availableP2pServices[0].properties
+                        const selected = $selectedP2pService;
+                        const service = $availableP2pServices.reduce((result, service) => service.id === selected.id ? service : result, {});
+                        const headlessPeerId = service.properties
                             .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
 
                         if (headlessPeerId && !headlessPeerId?.empty) {
@@ -356,19 +358,28 @@
     <aside>
         <div id="frame">
         {#if showWelcome}
-            <WelcomeOverlay withOkFooter="{$arIsAvailable}" {shouldShowDashboard} {shouldShowUnavailableInfo}
-                            {isLocationAccessRefused}
-                            on:okAction={() => closeIntro(false)}
-                            on:dashboardAction={() => closeIntro(true)}
-                            on:requestLocation={requestLocationAccess} />
-
+            <WelcomeOverlay
+                withOkFooter="{$arIsAvailable}"
+                {shouldShowDashboard}
+                {shouldShowUnavailableInfo}
+                {isLocationAccessRefused}
+                on:okAction={() => closeIntro(false)}
+                on:dashboardAction={() => closeIntro(true)}
+                on:requestLocation={requestLocationAccess}
+            />
         {:else if showOutro}
-            <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
+            <OutroOverlay
+                {shouldShowDashboard}
+                on:okAction={closeIntro}
+            />
         {/if}
         </div>
     </aside>
     {:else if !$arIsAvailable}
-        <Spectator bind:this={spectator} {isHeadless} />
+        <Spectator
+            bind:this={spectator}
+            {isHeadless}
+        />
     {/if}
 
 {:else}
@@ -379,11 +390,15 @@
 </main>
 
 {#if showAr && viewer}
-<svelte:component bind:this={viewerInstance} this="{viewer}"
-                  on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+    <svelte:component
+        bind:this={viewerInstance}
+        this="{viewer}"
+        on:arSessionEnded={sessionEnded}
+        on:broadcast={handleBroadcast}
+    />
 {:else if showAr && $arMode === ARMODES.experiment}
-<p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-<button on:click={sessionEnded}>Go back</button>
+    <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
+    <button on:click={sessionEnded}>Go back</button>
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

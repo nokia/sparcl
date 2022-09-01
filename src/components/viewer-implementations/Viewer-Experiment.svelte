@@ -1,3 +1,5 @@
+<!-- WARNING: this code is left behind from refactoring. do not use it -->
+
 <!--
   (c) 2021 Open AR Cloud
   This code is licensed under MIT license (see LICENSE for details)
@@ -421,9 +423,11 @@
         // Now calculate the global pose of the reticle
         let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "position": {
+                "lat": globalObjectPose.position.lat,
+                "lon": globalObjectPose.position.lon,
+                "h": globalObjectPose.position.h
+            },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
                 "y": globalObjectPose.quaternion.y,
@@ -668,19 +672,25 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
-                        } else {
-                            return getContent();
-                        }
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        //if (optionalScrs) {
+                        //    return [optionalScrs];
+                        //}
+                        
+                        // Instead of returning [optionalScrs], we request content from all available content services
+                        // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
+                        let scrsPromises = getContentsInH3Cell();
+                        return scrsPromises;
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
@@ -718,7 +728,34 @@
                         isLocalisationDone = true;
                     });
 
-                    resolve([data.geopose || data.pose, data.scrs]);
+                    // GeoPoseResp
+                    // https://github.com/OpenArCloud/oscp-geopose-protocol
+                    let cameraGeoPose = null
+                    if (data.geopose != undefined && data.scrs != undefined && data.geopose.geopose != undefined) {
+                        // data is AugmentedCity format which contains other entries too
+                        // (for example AC /scrs/geopose_objs_local endpoint)
+                        cameraGeoPose = data.geopose.geopose;
+                    } else if (data.geopose != undefined) {
+                        // data is GeoPoseResp
+                        // (for example AC /scrs/geopose endpoint)
+                        cameraGeoPose = data.geopose;
+                    } else {
+                        errorMessage = "GPP response has no geopose field";
+                        console.log(errorMessage);
+                        throw errorMessage;
+                    }
+                    
+                    console.log("IMAGE GeoPose:");
+                    console.log(cameraGeoPose);
+
+                    // NOTE: AugmentedCity also returns neighboring objects in the GPP response
+                    let optionalScrs = undefined;
+                    if (data.scrs != undefined) {
+                        optionalScrs = data.scrs;
+                        console.log("GPP response also contains " + optionalScrs.length + " SCRs");
+                    }
+                    
+                    resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
@@ -746,12 +783,11 @@
     /**
      * Request content from SCD available around the current location.
      */
-    function getContent() {
+    function getContentsInH3Cell() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
                 result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
-
             return result
         }, [])
 
@@ -951,8 +987,12 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if $arMode === ARMODES.oscp}
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                        on:startLocalisation={startLocalisation} />
+                <ArCloudOverlay
+                    hasPose="{firstPoseReceived}"
+                    isLocalizing="{isLocalizing}"
+                    isLocalized="{isLocalized}"
+                    on:startLocalisation={startLocalisation}
+                />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else if $arMode === ARMODES.create}
@@ -961,16 +1001,18 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                    <ArCloudOverlay hasPose="{firstPoseReceived}"
-                                    isLocalizing="{isLocalizing}"
-                                    isLocalized="{isLocalized}"
-                                    receivedContentTitles="{receivedContentTitles}"
-                                    on:startLocalisation={startLocalisation}
+                    <ArCloudOverlay
+                        hasPose="{firstPoseReceived}"
+                        isLocalizing="{isLocalizing}"
+                        isLocalized="{isLocalized}"
+                        receivedContentTitles="{receivedContentTitles}"
+                        on:startLocalisation={startLocalisation}
                     />
                 {:else}
-                    <ArExperimentOverlay bind:this={experimentOverlay}
-                                        on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                        on:relocalize={relocalize}
+                    <ArExperimentOverlay
+                        bind:this={experimentOverlay}
+                        on:toggleAutoPlacement={toggleExperimentalPlacement}
+                        on:relocalize={relocalize}
                     />
                 {/if}
             {:else}

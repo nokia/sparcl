@@ -26,6 +26,7 @@
 
     import {ARMODES, wait} from "@core/common";
     import {printOglTransform} from '@core/devTools';
+    import {upgradeGeoPoseStandard} from '@core/locationTools';
     import {getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor,
          stopOrientationSensor, unlockScreenOrientation} from "@core/sensors";
 
@@ -163,19 +164,25 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
-                        } else {
-                            return getContent();
-                        }
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        //if (optionalScrs) {
+                        //    return [optionalScrs];
+                        //}
+                        
+                        // Instead of returning [optionalScrs], we request content from all available content services
+                        // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
+                        let scrsPromises = getContentsInH3Cell();
+                        return scrsPromises;
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
@@ -280,11 +287,37 @@
                         $context.showFooter = false;
                         $context.isLocalisationDone = true;
                     });
+                    console.log("GPP response:");
+                    console.log(data);
+
+                    // GeoPoseResp
+                    // https://github.com/OpenArCloud/oscp-geopose-protocol
+                    let cameraGeoPose = null
+                    if (data.geopose != undefined && data.scrs != undefined && data.geopose.geopose != undefined) {
+                        // data is AugmentedCity format which contains other entries too
+                        // (for example AC /scrs/geopose_objs_local endpoint)
+                        cameraGeoPose = data.geopose.geopose;
+                    } else if (data.geopose != undefined) {
+                        // data is GeoPoseResp
+                        // (for example AC /scrs/geopose endpoint)
+                        cameraGeoPose = data.geopose;
+                    } else {
+                        errorMessage = "GPP response has no geopose field";
+                        console.log(errorMessage);
+                        throw errorMessage;
+                    }
 
                     console.log("IMAGE GeoPose:");
-                    console.log(data.geopose || data.pose);
+                    console.log(cameraGeoPose);
 
-                    resolve([data.geopose || data.pose, data.scrs]);
+                    // NOTE: AugmentedCity also returns neighboring objects in the GPP response
+                    let optionalScrs = undefined;
+                    if (data.scrs != undefined) {
+                        optionalScrs = data.scrs;
+                        console.log("GPP response also contains " + optionalScrs.length + " SCRs.");
+                    }
+
+                    resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
@@ -312,12 +345,13 @@
     /**
      * Request content from SCD available around the current location.
      */
-    export function getContent() {
+    export function getContentsInH3Cell() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
+                // TODO: H3 cell ID and topic should be be customizable
+                let scrs_ = getContentsAtLocation(service.url, 'history', $initialLocation.h3Index)
+                result.push(scrs_);
             }
-
             return result
         }, [])
 
@@ -329,19 +363,22 @@
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
      * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
-     * @param scr  [SCR]        Content Records with the result from the selected content services
+     * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export function placeContent(localPose, globalPose, scr) {
+    export function placeContent(localPose, globalPose, scrs) {
         let localImagePose = localPose.transform
         let globalImagePose = globalPose
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        scr.forEach(response => {
+        scrs.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
                 // TODO: validate here whether we received a proper SCR
+
+                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard
+                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
 
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
@@ -382,6 +419,7 @@
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
                         // Orbit custom data type
+                        // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
                         if (contentType.includes("gltf")) {
@@ -407,9 +445,6 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
-
-                // TODO: Anchor placeholder for better visual stability?!
             })
         })
 
@@ -420,6 +455,8 @@
         });
 
         tdEngine.endSpatialContentRecords();
+
+        wait(3000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
     }
 
     /**
@@ -540,14 +577,15 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay" {firstPoseReceived}
-                      isLocalized={$context.isLocalized}
-                      isLocalisationDone={$context.isLocalisationDone}
-                      isLocalizing={$context.isLocalizing}
-                      receivedContentTitles={$context.receivedContentTitles}
+                <slot name="overlay"
+                    {firstPoseReceived}
+                    isLocalized={$context.isLocalized}
+                    isLocalisationDone={$context.isLocalisationDone}
+                    isLocalizing={$context.isLocalizing}
+                    receivedContentTitles={$context.receivedContentTitles}
                 />
             {:else if $arMode === ARMODES.marker}
-                <ArMarkerOverlay />
+                <ArMarkerOverlay/>
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>

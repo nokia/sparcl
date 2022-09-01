@@ -143,6 +143,8 @@ export const ssr = writable([]);
  * @type {Readable<SERVICE[]>}
  */
 export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
+    selectedGeoPoseService.set('none')
+    
     let geoposeServices = [];
     for (let record of $ssr) {
         geoposeServices.concat(record.services
@@ -153,6 +155,19 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
     }
 
     set(geoposeServices);
+
+    // If none selected yet, set the first available as selected
+    // TODO: Make sure that stored selected service is still valid
+    if (get(selectedGeoPoseService) === 'none' && geoposeServices.length > 0) {
+        selectedGeoPoseService.set(geoposeServices[0]);
+    }
+
+    // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
+    if (get(selectedGeoPoseService) !== 'none') {
+        debug_useGeolocationSensors.set(false);
+    } else {
+        debug_useGeolocationSensors.set(true);
+    }
 }, []);
 
 
@@ -171,16 +186,17 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    if (contentServices.length > 0 && Object.keys(get(selectedContentServices)).length === 0) {
+    set(contentServices);
+
+    // If none selected yet, set the first available as selected
+    if (Object.keys(get(selectedContentServices)).length === 0 && contentServices.length > 0) {
         const id = contentServices[0].id
         let selection = {};
         selection[id] = {}
         selection[id].isSelected = true;
-        selection[id].selectedTopic = 'history';    // TODO: get first topic from service
+        selection[id].selectedTopic = 'history'; // TODO: get first topic from service
         selectedContentServices.set(selection);
     }
-
-    set(contentServices);
 }, []);
 
 
@@ -190,6 +206,8 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
  * @type {Readable<SERVICE[]>}
  */
 export const availableP2pServices = derived(ssr, ($ssr, set) => {
+    selectedP2pService.set('none')
+    
     let p2pServices = [];
     for (let record of $ssr) {
         p2pServices.concat(record.services
@@ -199,12 +217,13 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    // TODO: Make sure that stored selected service is still valid
-    if (p2pServices.length > 0 && get(selectedP2pService) === 'none') {
-        selectedP2pService.set(p2pServices[0].id);
-    }
-
     set(p2pServices);
+
+    // If none selected yet, set the first available as selected
+    // TODO: Make sure that stored selected service is still valid
+    if (get(selectedP2pService) === 'none' && p2pServices.length > 0) {
+        selectedP2pService.set(p2pServices[0]);
+    }
 }, []);
 
 
@@ -213,11 +232,11 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
  *
  * @type {Writable<>}
  */
-export const selectedGeoPoseService = writable({}, (set) => {
-    set(get(availableGeoPoseServices)[0]);
-    return () => {};
-});
-
+const storedSelectedGeoPoseService = localStorage.getItem('selectedGeoPoseServiceStorage');
+export const selectedGeoPoseService = writable(storedSelectedGeoPoseService || 'none');
+selectedGeoPoseService.subscribe(value => {
+    localStorage.setItem('selectedGeoPoseServiceStorage', value);
+})
 
 /**
  * Used to store the values of the most up to date localisation.
@@ -243,10 +262,10 @@ export const selectedContentServices = writable({});
  *
  * @type {Writable<SERVICE>}
  */
-const storedSelectedP2pService = localStorage.getItem('selectedp2pstorage');
+const storedSelectedP2pService = localStorage.getItem('selectedP2pServiceStorage');
 export const selectedP2pService = writable(storedSelectedP2pService || 'none');
 selectedP2pService.subscribe(value => {
-    localStorage.setItem('selectedp2pstorage', value);
+    localStorage.setItem('selectedP2pServiceStorage', value);
 })
 
 
