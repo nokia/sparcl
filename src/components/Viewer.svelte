@@ -183,6 +183,7 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
+
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -464,6 +465,16 @@
                         tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                     }
                     break;
+                case "geopose_stream":
+                    // IROS2022 demo
+                    if (record.tenant === 'IROS2022demo') {
+                        //console.log("IROS2022demo object received!")
+                        let object_description = record.content.object_description;
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                    }
+                    break;
                 default:
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);
                     console.log(record.content);
@@ -513,6 +524,10 @@
                 }, {once: true})
             }
         }, { once: true });
+    }
+
+    export function getRenderer() {
+        return tdEngine;
     }
 
     // TODO: rename to onEventReceived()

@@ -358,3 +358,14 @@ dashboardDetail.subscribe(value => {
 })
 
 export const receivedScrs = writable([]);
+
+
+/**
+ * Used to store the target waypoint GeoPose where the robot has to go
+ *
+ * @type {Writable<{floorpose: {}, geopose: {}}>}
+ */
+ export const robotTargetWaypoint = writable({
+    geopose: {},
+    floorpose: {}
+})

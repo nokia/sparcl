@@ -30,7 +30,7 @@
      */
     export function onNetworkEvent(events) {
         // Simply print any other events and return
-        if (!('message_broadcasted' in events) && !('object_created' in events)) {
+        if (!('message_broadcasted' in events) && !('object_created' in events) && !('agent_geopose_updated' in events)) {
             console.log('Spectator: Unknown event received:');
             console.log(events);
             return;
@@ -63,6 +63,19 @@
                     }
                 }
 //            }
+        }
+
+        if ('agent_geopose_updated' in events) {
+            let data = events.agent_geopose_updated;
+            const agent_id = data.agent_id;
+            const marker_lat = data.geopose.position.lat;
+            const marker_lon = data.geopose.position.lon;
+            const r = Math.round(255 * data.color[0]);
+            const g = Math.round(255 * data.color[1]);
+            const b = Math.round(255 * data.color[2])
+            const marker_color = "rgb(" + r + "," + g + "," + b + ")";
+            placeMarker(marker_lat, marker_lon, marker_color);
+            // TODO: place text with agent_id
         }
     }
 
