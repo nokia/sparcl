@@ -35,6 +35,8 @@
     let currentSharedValues = {};
     let p2p;
 
+    let rmq = undefined; // RabbitMQ module
+
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
 
@@ -170,6 +172,19 @@
                 shouldShowDashboard = true;
             }
         }
+
+        console.log("loading RabbitMQ module...");
+        import('@src/core/rmqnetwork').then(rmqModule => {
+            rmq = rmqModule;
+            console.log("connecting to RMQ...")
+            let rmq_callback = (data) => {
+                //console.log("App received update:");
+                //console.log(data);
+                viewerInstance?.onNetworkEvent(data);
+                spectator?.onNetworkEvent(data);
+            };
+            rmq.rabbitmq_connection(rmq_callback);
+        });
     })
 
     /**
