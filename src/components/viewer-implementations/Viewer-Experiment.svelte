@@ -81,9 +81,17 @@
     /**
      * Receives data from the application to be applied to current scene.
      */
-    export function updateReceived(events) {
+    export function onNetworkEvent(events) {
+        // Simply print any other events and return
+        if (!('message_broadcasted' in events) && !('object_created' in events)
+                && !('setrotation' in events) && !('setcolor' in events)) {
+            console.log('Viewer-Experiment: Unknown event received:');
+            console.log(events);
+            return;
+        }
+
         // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+        console.log('Viewer-Experiment: event received:');
         console.log(events);
 
         if ('message_broadcasted' in events) {
@@ -164,7 +172,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -192,7 +200,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -270,7 +278,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -452,7 +460,7 @@
             "content": content,
             "id": object_id,
             "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
+            "type": "ephemeral",
             "timestamp": timestamp
         }
 
@@ -649,9 +657,14 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
+            let cameraIntrinsics = null;
+            let cameraViewport = null;
             if (!isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
-                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
+                const res = xrEngine.getCameraTexture2(view); // new Chrome 92
+                cameraTexture = res.cameraTexture
+                cameraIntrinsics = res.cameraIntrinsics;
+                cameraViewport = res.cameraViewport;
             }
 
             if (doCaptureImage) {
@@ -659,8 +672,10 @@
 
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
-                const imageWidth = view.camera.width; // new Chrome 92
-                const imageHeight = view.camera.height; // new Chrome 92
+                //const imageWidth = view.camera.width; // new Chrome 92
+                //const imageHeight = view.camera.height; // new Chrome 92
+                const imageWidth = cameraViewport.width;
+                const imageHeight = cameraViewport.height;
 
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
@@ -671,7 +686,7 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, imageWidth, imageHeight)
+                localize(image, imageWidth, imageHeight, cameraIntrinsics)
                     .then(([geoPose, optionalScrs]) => {
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
@@ -682,7 +697,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-                        
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -708,12 +722,18 @@
      * @param image  string     Camera image to use for localisation
      * @param width  Number     Width of the camera image
      * @param height  Number    Height of the camera image
+     * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    function localize(image, width, height) {
+    function localize(image, width, height, cameraIntrinsics) {
         return new Promise((resolve, reject) => {
+            let cameraParams = new CameraParam();
+            cameraParams.model = CAMERAMODEL.PINHOLE;
+            cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
+
+            
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
             // Services haven't implemented recent changes to the protocol yet
@@ -744,7 +764,6 @@
                         console.log(errorMessage);
                         throw errorMessage;
                     }
-                    
                     console.log("IMAGE GeoPose:");
                     console.log(cameraGeoPose);
 
@@ -754,7 +773,6 @@
                         optionalScrs = data.scrs;
                         console.log("GPP response also contains " + optionalScrs.length + " SCRs");
                     }
-                    
                     resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
@@ -818,14 +836,17 @@
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
-                if (record.content.type === 'placeholder') {
-
+                switch (record.content.type) {
+                case "MODEL_3D":
+                case "3D": // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
+                case "placeholder": // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022            
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                     let position = localObjectPose.position;
                     let orientation = localObjectPose.quaternion;
 
-                    // Augmented City proprietary structure
+                    // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
+                    // kept for backward compatibility and will be removed
                     //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
                     if (record.content.custom_data?.sticker_subtype != undefined) {
                         const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
@@ -845,31 +866,43 @@
                                 console.log("Error: unexpected sticker subtype: " + subtype)
                                 break;
                         }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
-                        // Orbit custom data type
+                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
+                        // OSCP-compliant 3D content structure      
+                        // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
                         if (contentType.includes("gltf")) {
                             tdEngine.addModel(position, orientation, url);
                         } else {
+                            // we cannot load anything else but GLTF
+                            // so draw a placeholder instead
                             const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                             handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                         }
                     } else {
+                        // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
+                        // so draw a placeholder instead
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-                }
+                    break;
+                
+                case 'ephemeral':
+                    // ISMAR2021 demo
+                    if (record.tenant === 'ISMAR2021demo') {
+                        console.log("ISMAR2021demo object received!")
+                        let object_description = record.content.object_description;
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                    }
+                    break;  
 
-                if (record.tenant === 'ISMAR2021demo') {
-                    console.log("ISMAR2021demo object received!")
-                    let object_description = record.content.object_description;
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    printOglTransform("localObjectPose", localObjectPose);
-                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                default:
+                    console.log(record.content.title + " has unexpected content type: " + record.content.type);
+                    console.log(record.content);
+                    break;
                 }
-
                 //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
