@@ -7,7 +7,7 @@ import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} fro
 import {createGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
-    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
+    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
 
 import {convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
     geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees} from '@core/locationTools';
@@ -26,6 +26,8 @@ let _localImagePose;
 let experimentTapHandler = null;
 let lastTime = 0;
 
+let dynamic_objects_descriptions = {};
+let dynamic_objects_meshes = {};
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -232,6 +234,85 @@ export default class ogl {
         mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         scene.addChild(mesh);
         return mesh;
+    }
+
+    /**
+     * Create a dynamic object with given properties at the given pose
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param object_description {*}    Key-value pairs of object properties
+     * @returns {Mesh}  The newly created mesh
+     */
+    addDynamicObject(object_id, position, orientation, object_description=null) {
+        let description = object_description;
+        if (description == null) {
+            description = {
+                'version': 2,
+                'color': [1.0, 1.0, 1.0, 0.5],
+                'shape': PRIMITIVES.sphere,
+                'scale': [0.25, 0.25, 0.25],
+                'transparent': true,
+                'options': {}
+            };
+        }
+        const mesh = createModel(gl, description.shape,
+            description.color, description.transparent,
+            description.options, description.scale);
+        mesh.position.set(position.x, position.y, position.z);
+        mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        scene.addChild(mesh);
+        dynamic_objects_descriptions[object_id] = description;
+        dynamic_objects_meshes[object_id] = mesh;
+        return mesh;
+    }
+
+    /**
+     * Update a dynamic object with given properties at the given pose
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param object_description {*}    Key-value pairs of object properties
+     * @returns boolean     Whether the update succeeded
+     */
+     updateDynamicObject(object_id, position=null, orientation=null, object_description=null) {
+        if (!object_id in dynamic_objects_descriptions) {
+            console.log("WARNING: object_id " + object_id + " is is not in the scene, cannot update object");
+            return false;
+        }
+        // TODO: implement the update mechanism here
+        // as the Mesh properties cannot be changed, we probably need to delete the mesh and recreate a new one with the new description
+        //dynamic_objects_descriptions[object_id] = description;
+        //dynamic_objects_meshes[object_id] = mesh;
+        return true;
+    }
+
+    /**
+     * Query the description of a dynamic object
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @returns {*}     Key-value pairs of object properties
+     */
+    getDynamicObjectDescription(object_id) {
+        if (object_id in dynamic_objects_descriptions) {
+            return dynamic_objects_descriptions[object_id];
+        }
+        return null;
+    }
+
+    /**
+     * Query the mesh of a dynamic object
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @returns {Mesh}
+     */
+    getDynamicObjectMesh(object_id) {
+        if (object_id in dynamic_objects_meshes) {
+            return dynamic_objects_meshes[object_id];
+        }
+        return null;
     }
 
     /**

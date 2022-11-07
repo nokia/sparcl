@@ -99,7 +99,7 @@
         let latestGlobalPose = $recentLocalisation.geopose;
         let latestLocalPose = $recentLocalisation.floorpose.transform;
 
-        // HACK: this is to initialize the internal alignment matrices. 
+        // HACK: this is to initialize the internal alignment matrices.
         // Normally this is done when the first contents arrives, but we have no contents yet at this point.
         parentInstance.getRenderer().beginSpatialContentRecords(latestLocalPose, latestGlobalPose);
 
@@ -141,7 +141,7 @@
      */
     export function onNetworkEvent(events) {
         // Simply print any other events and return
-        if (!('agent_geopose_updated' in events)) {
+        if (!('agent_geopose_updated' in events) && !('waypoint_set' in events) && !('reservation_status_changed' in events)) {
             console.log('Viewer-Oscp: Unknown event received:');
             console.log(events);
             // pass on to parent
@@ -212,6 +212,35 @@
                     $robotTargetWaypoint.floorpose = {};
                 }
             }
+        }
+
+        if ('waypoint_set' in events) {
+            console.log("Waypoint event received");
+            console.log(events.waypoint_set);
+            // TODO: handle...
+        }
+
+        if ('reservation_status_changed' in events) {
+            //console.log("Reservation status event received");
+            //console.log(events.reservation_status_changed);
+            let chair_id = events.reservation_status_changed.chair_id;
+            let reserved = events.reservation_status_changed.reserved;
+            if (chair_id == undefined || reserved == undefined) {
+                console.log("WARNING: invalid chair reservation message");
+                return;
+            }
+            let mesh = parentInstance.getRenderer().getDynamicObjectMesh(chair_id);
+            if (mesh == null) {
+                console.log("WARNING: this chair is not in this scene!");
+                return;
+            }
+            if (reserved) {
+                mesh.scale = [0.10, 0.10, 0.10];
+            } else {
+                mesh.scale = [0.25, 0.25, 0.25];
+            }
+            //parentInstance.getRenderer().updateDynamicObject(chair_id);
+            new Audio('media/audio/news-ting-6832.mp3').play();
         }
      }
 

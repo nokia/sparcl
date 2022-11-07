@@ -1,8 +1,8 @@
-export const config = {
+export const rmq_config = {
     rmquser: "",
     rmqpassword: "",
     hostname: "",
     rmqport: 15673, // Secure WebSockets Web-STOMP (wss://)
-    openstreetqueue1: "",
-    penstreetqueue2: ""
+    queue_1: "",
+    queue_2: ""
 }

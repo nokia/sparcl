@@ -33,7 +33,6 @@
 
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
 
-
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
@@ -465,7 +464,7 @@
                 case "ephemeral":
                     // ISMAR2021 demo
                     if (record.tenant === 'ISMAR2021demo') {
-                        console.log("ISMAR2021demo object received!")
+                        //console.log("ISMAR2021demo object received!")
                         let object_description = record.content.object_description;
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
@@ -480,6 +479,34 @@
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                         tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                    }
+                    break;
+                case "sensor_stream":
+                    {
+                        let chair_id_index = record.content.definitions?.findIndex(function(key_value_pair) {
+                            return key_value_pair.type === "chair_id"; // WARNING: a 'key' is called 'type' in the SCR definitions
+                        }); // -1 if not found
+                        console.log("chair_id_index: " + chair_id_index);
+                        if (chair_id_index >= 0) {
+                            let chair_id = record.content.definitions[chair_id_index].value;
+                            console.log("chair_id: " + chair_id);
+                            //if (tdEngine.getDynamicObject(chair_id) == null) {
+                                let globalObjectPose = record.content.geopose;
+                                let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                                tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                            //} else {
+                            //    tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                            //}              
+                        }
+                        //console.log("CHAIR:");
+                        //console.log(record.content);
+
+                    // TODO: addObject should return some ID in the scene
+                    // the sensor's real-world ID shoudl be an entry in the SCR
+                    // we should store the object's ID in the scene together with the SCR ID in a map
+                    // when we receive a new sensor value, we check the incoming sensorID, look it up in the map
+                    // if it does not exist, we create a model for it with tdEngine.addObject()
+                    // if it exists, we retrieve the corresponding model and manipulate it
                     }
                     break;
                 default:

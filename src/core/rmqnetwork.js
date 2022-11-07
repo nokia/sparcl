@@ -54,23 +54,27 @@ amqp.connect('amqp://localhost', function(error0, connection) {
     });
 });
 
+// TODO: remove these from the git history
 /*
-var config = require('./cfg/config.json');
-var rmquser = config.user;
-var rmqpassword = config.password;
-var hostname = config.hostname;
-var rmqport = config.rmqport;
-var robot1_queue = config.openstreetqueue1;
-var robot2_queue = config.openstreetqueue2;
+const config = require('./cfg/config.json');
+const rmquser = config.user;
+const rmqpassword = config.password;
+const hostname = config.hostname;
+const rmqport = config.rmqport;
+const robot1_queue = config.robot1_queue;
+const robot2_queue = config.robot2_queue;
 */
-var rmquser = "rmquser";
-var rmqpassword = "rmqpassword";
-var hostname = "camloc.xyz";
-//var rmqport = 5672; // deafult on localhost
-//var rmqport = 15674; // WebSockets Web-STOMP (ws://)
-var rmqport = 15673; // Secure WebSockets Web-STOMP (wss://)
-var robot1_queue = "/amq/queue/robot1_queue";
-var robot2_queue = "/amq/queue/robot2_queue";
+const rmquser = "rmquser";
+const rmqpassword = "rmqpassword";
+const hostname = "camloc.xyz";
+//const rmqport = 5672; // deafult on localhost
+//const rmqport = 15674; // WebSockets Web-STOMP (ws://)
+const rmqport = 15673; // Secure WebSockets Web-STOMP (wss://)
+const robot1_queue = "/amq/queue/robot1_queue";
+const robot2_queue = "/amq/queue/robot2_queue";
+
+const waypoint_queue = "/amq/queue/waypoint_queue";
+const chair_reservation_queue = "/amq/queue/chair_reservation_queue";
 
 let robot1GPS = [0, 0];
 let robot2GPS = [0, 0];
@@ -95,7 +99,7 @@ export function rabbitmq_connection(updateftn) {
         console.log('RMQ connection successful!');
         client.subscribe(robot1_queue, function (d) {
             //console.log("RMQ received data on " + robot1_queue);
-            //console.log(d);    
+            //console.log(d);
             //Example data:
             /*{
             "GeoPose":{"position":{"h":1.6512998342514038,"lat":47.48619842529297,"lon":19.079368591308594},
@@ -113,7 +117,7 @@ export function rabbitmq_connection(updateftn) {
             robot1GeoPose = data.GeoPose;
             const agentName = data.ProducerName
             const timestamp = data.Timestamp
-            
+
             throttleCounter = throttleCounter + 1;
             if (throttleCounter > 2) { // 10
                 throttleCounter = 0;
@@ -122,7 +126,7 @@ export function rabbitmq_connection(updateftn) {
                         'agent_geopose_updated': {
                             'agent_id': agentName,
                             'geopose': robot1GeoPose,
-                            'color': [1.0, 1.0, 0.0], 
+                            'color': [1.0, 1.0, 0.0],
                             'timestamp': timestamp
                         }
                     };
@@ -130,21 +134,57 @@ export function rabbitmq_connection(updateftn) {
                 }
             }
         });
-    
+
+        /*
         client.subscribe(robot2_queue, function (d) {
             //console.log("RMQ received data on " + robot2_queue);
-            //console.log(d); 
+            //console.log(d);
             const obj = JSON.parse(d.body);
             //console.log(obj);
             robot2GPS = [obj.lon, obj.lat];
-            console.log("Received Robot2 GPS: ", robot2GPS);        
+            console.log("Received Robot2 GPS: ", robot2GPS);
+        });
+        */
+
+        client.subscribe(waypoint_queue, function (d) {
+            const msg = JSON.parse(d.body);
+            console.log(msg);
+            let waypointGeoPose = msg.geopose || null;
+            if (waypointGeoPose == null) {
+                return;
+            }
+            let agent_id = msg.agent_id || "unknown"; // target agent
+            let creator_id = msg.creator || "unknown";
+            let timestamp = msg.timestamp || 0;
+            const data = {
+                'waypoint_set': {
+                    'agent_id': agent_id,
+                    'creator_id': creator_id,
+                    'geopose': waypointGeoPose,
+                    'color': [1.0, 1.0, 0.0],
+                    'timestamp': timestamp
+                }
+            };
+            updateFunction(data);
+        });
+
+        client.subscribe(chair_reservation_queue, function (d) {
+            const msg = JSON.parse(d.body);
+            console.log(msg);
+            const data = {
+                'reservation_status_changed': {
+                    'chair_id': msg.chair_id,
+                    'reserved': msg.reserved
+                }
+            };
+            updateFunction(data);
         });
     };
 
     var on_error = function () {
         console.log('error');
     };
-    
+
     client.connect(rmquser, rmqpassword, on_connect, on_error, '/');
     });
 }
