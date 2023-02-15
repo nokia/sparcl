@@ -76,10 +76,12 @@ const robot2_queue = "/amq/queue/robot2_queue";
 const waypoint_queue = "/amq/queue/waypoint_queue";
 const chair_reservation_queue = "/amq/queue/chair_reservation_queue";
 
-let robot1GPS = [0, 0];
-let robot2GPS = [0, 0];
 let robot1GeoPose = null;
-let throttleCounter = 0;
+let robot2GeoPose = null;
+let throttleCounter1 = 0;
+let throttleCounter2 = 0;
+let robot1Color = [1.0, 1.0, 0.0];
+let robot2Color = [0.0, 1.0, 0.0];
 
 let updateFunction = undefined;
 
@@ -115,18 +117,18 @@ export function rabbitmq_connection(updateftn) {
             //note: we could even pass a model URL :)
             const data = JSON.parse(d.body);
             robot1GeoPose = data.GeoPose;
-            const agentName = data.ProducerName
-            const timestamp = data.Timestamp
+            const agentName = data.ProducerName;
+            const timestamp = data.Timestamp;
 
-            throttleCounter = throttleCounter + 1;
-            if (throttleCounter > 2) { // 10
-                throttleCounter = 0;
+            throttleCounter1 = throttleCounter1 + 1;
+            if (throttleCounter1 > 2) {  // TODO: now turtned off. it was 10
+                throttleCounter1 = 0;
                 if (updateFunction) {
                     const data = {
                         'agent_geopose_updated': {
                             'agent_id': agentName,
                             'geopose': robot1GeoPose,
-                            'color': [1.0, 1.0, 0.0],
+                            'color': robot1Color,
                             'timestamp': timestamp
                         }
                     };
@@ -135,16 +137,28 @@ export function rabbitmq_connection(updateftn) {
             }
         });
 
-        /*
         client.subscribe(robot2_queue, function (d) {
-            //console.log("RMQ received data on " + robot2_queue);
-            //console.log(d);
-            const obj = JSON.parse(d.body);
-            //console.log(obj);
-            robot2GPS = [obj.lon, obj.lat];
-            console.log("Received Robot2 GPS: ", robot2GPS);
+            const data = JSON.parse(d.body);
+            robot2GeoPose = data.GeoPose;
+            const agentName = data.ProducerName;
+            const timestamp = data.Timestamp;
+            throttleCounter2 = throttleCounter2 + 1;
+            if (throttleCounter2 > 2) { // TODO: now turtned off. it was 10
+                throttleCounter2 = 0;
+                if (updateFunction) {
+                    const data = {
+                        'agent_geopose_updated': {
+                            'agent_id': agentName,
+                            'geopose': robot2GeoPose,
+                            'color': robot2Color,
+                            'timestamp': timestamp
+                        }
+                    };
+                    updateFunction(data);
+                }
+            }
         });
-        */
+
 
         client.subscribe(waypoint_queue, function (d) {
             const msg = JSON.parse(d.body);

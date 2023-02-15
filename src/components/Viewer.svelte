@@ -47,6 +47,9 @@
     let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
     let unableToStartSession = false;
 
+    // This map stores references to the virtual objects in the scene, with keys being their SCR condent IDs
+    const localXrObjects = new Map();
+
     // TODO: Setup event target array, based on info received from SCD
 
     const context = getContext('state') || writable();
@@ -491,7 +494,14 @@
                         let object_description = record.content.object_description;
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                        if (localXrObjects.has(record.content.id)) {
+                            let mesh = localXrObjects.get(record.content.id);
+                            mesh.position = localObjectPose.position;
+                            mesh.quaternion = localObjectPose.quaternion;
+                        } else {
+                            let mesh = tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                            localXrObjects.set(record.content.id, mesh);
+                        }
                     }
                     break;
                 case "sensor_stream":
@@ -509,7 +519,7 @@
                                 tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
                             //} else {
                             //    tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                            //}              
+                            //}
                         }
                         //console.log("CHAIR:");
                         //console.log(record.content);

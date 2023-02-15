@@ -169,9 +169,9 @@
                 'options': {}
             };
             let content = {
-                "id": "",
+                "id": agent_id, // stream ID
                 "type": "geopose_stream", //high-level OSCP type
-                "title": object_id,
+                "title": object_id, // datapoint ID = stream ID + timestamp
                 "refs": [],
                 "geopose": data.geopose,
                 "object_description": object_description

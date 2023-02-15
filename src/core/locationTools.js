@@ -26,7 +26,7 @@ export const locationAccessOptions = {
  * @returns The same GeoPose formatted according to the new (March 2022) standard
  */
 export function upgradeGeoPoseStandard(geoPose) {
-    if (geoPose.position != undefined) { 
+    if (geoPose.position != undefined) {
         return geoPose;
     }
     geoPose["position"] = {
@@ -87,6 +87,7 @@ export function getCurrentLocation() {
         navigator.geolocation.getCurrentPosition((position) => {
             const latAngle = position.coords.latitude;
             const lonAngle = position.coords.longitude;
+            console.log("GPS location: (" + latAngle + ", " + lonAngle + ")");
 
             // WARNING: more than 1 request in a second leads to IP address ban!
             fetch(`https://nominatim.openstreetmap.org/reverse?
@@ -280,7 +281,7 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
 */
 export function convertSensor2AugmentedCityCam(sensorQuat) {
     // NOTE: In our GeoPoseRequest to AugmentedCity, we always set ImageOrientation.mirrored = false and rotation = 0;
-    // This is only correct because instead of the actual camera image, 
+    // This is only correct because instead of the actual camera image,
     // we capture the camera texture which is always rotated according to the screen orientation.
 
     // At unit quaternion orientation in the WebXR coordinate system, the (back) camera looks in the direction of North
@@ -307,7 +308,7 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
         console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
         quat.fromEuler(displayTransform, 0, 0, 0);
     }
-    
+
     let screenQuat = quat.create();
     quat.multiply(screenQuat, displayTransform, sensorQuat);
     */
