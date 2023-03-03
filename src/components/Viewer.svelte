@@ -363,6 +363,9 @@
         $context.isLocalized = false;
         $context.isLocalizing = false;
         $context.isLocalisationDone = false;
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+
         $receivedScrs = [];
         $context.receivedContentTitles = [];
 
