@@ -222,13 +222,29 @@
 
         if ('reservation_status_changed' in events) {
             //console.log("Reservation status event received");
-            //console.log(events.reservation_status_changed);
-            let chair_id = events.reservation_status_changed.chair_id;
-            let reserved = events.reservation_status_changed.reserved;
+            console.log(events.reservation_status_changed);
+            const chair_id = events.reservation_status_changed.chair_id;
+            const reserved = events.reservation_status_changed.reserved;
             if (chair_id == undefined || reserved == undefined) {
                 console.log("WARNING: invalid chair reservation message");
                 return;
             }
+
+            const object_description = parentInstance.getRenderer().getDynamicObjectDescription(chair_id);
+            if (object_description == null) {
+                console.log("WARNING: this chair is not in this scene!");
+                return;
+            }
+            let new_object_description = { ...object_description };
+            if (reserved) {
+                new_object_description.color = [1.0, 0.0, 0.0, 0.75];
+                new_object_description.scale = [0.10, 0.10, 0.10];
+            } else {
+                new_object_description.color = [0.0, 1.0, 0.0, 0.75];
+                new_object_description.scale = [0.25, 0.25, 0.25];
+            }
+            parentInstance.getRenderer().updateDynamicObject(chair_id, null, null, new_object_description);
+            /*
             let mesh = parentInstance.getRenderer().getDynamicObjectMesh(chair_id);
             if (mesh == null) {
                 console.log("WARNING: this chair is not in this scene!");
@@ -239,7 +255,7 @@
             } else {
                 mesh.scale = [0.25, 0.25, 0.25];
             }
-            //parentInstance.getRenderer().updateDynamicObject(chair_id);
+            */
             new Audio('media/audio/news-ting-6832.mp3').play();
         }
      }

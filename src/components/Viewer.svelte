@@ -47,9 +47,6 @@
     let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
     let unableToStartSession = false;
 
-    // This map stores references to the virtual objects in the scene, with keys being their SCR condent IDs
-    const localXrObjects = new Map();
-
     // TODO: Setup event target array, based on info received from SCD
 
     const context = getContext('state') || writable();
@@ -497,13 +494,11 @@
                         let object_description = record.content.object_description;
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        if (localXrObjects.has(record.content.id)) {
-                            let mesh = localXrObjects.get(record.content.id);
-                            mesh.position = localObjectPose.position;
-                            mesh.quaternion = localObjectPose.quaternion;
+                        let object_id = record.content.id;
+                        if (tdEngine.getDynamicObjectMesh(object_id) != null) {
+                            tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description)
                         } else {
-                            let mesh = tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
-                            localXrObjects.set(record.content.id, mesh);
+                            tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
                         }
                     }
                     break;
@@ -512,20 +507,16 @@
                         let chair_id_index = record.content.definitions?.findIndex(function(key_value_pair) {
                             return key_value_pair.type === "chair_id"; // WARNING: a 'key' is called 'type' in the SCR definitions
                         }); // -1 if not found
-                        console.log("chair_id_index: " + chair_id_index);
                         if (chair_id_index >= 0) {
+                            let globalObjectPose = record.content.geopose;
+                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             let chair_id = record.content.definitions[chair_id_index].value;
-                            console.log("chair_id: " + chair_id);
-                            //if (tdEngine.getDynamicObject(chair_id) == null) {
-                                let globalObjectPose = record.content.geopose;
-                                let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
+                                tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                            } else {
                                 tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                            //} else {
-                            //    tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                            //}
+                            }
                         }
-                        //console.log("CHAIR:");
-                        //console.log(record.content);
 
                     // TODO: addObject should return some ID in the scene
                     // the sensor's real-world ID shoudl be an entry in the SCR

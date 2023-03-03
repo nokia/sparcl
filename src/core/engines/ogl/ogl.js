@@ -127,6 +127,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addModel(position, orientation, url) {
+        console.log("OGL addModel " + url);
         const gltfScene = new Transform();
         gltfScene.position.set(position.x, position.y, position.z);
         gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
@@ -227,6 +228,7 @@ export default class ogl {
      * @returns {Mesh}
      */
     addObject(position, orientation, object_description) {
+        console.log("OGL addObject: " + object_description);
         const mesh = createModel(gl, object_description.shape,
                 object_description.color, object_description.transparent,
                 object_description.options, object_description.scale);
@@ -246,6 +248,11 @@ export default class ogl {
      * @returns {Mesh}  The newly created mesh
      */
     addDynamicObject(object_id, position, orientation, object_description=null) {
+        console.log("OGL addDynamicObject: " + object_id);
+        console.log(position);
+        console.log(orientation);
+        console.log(object_description);
+        console.log(" ");
         let description = object_description;
         if (description == null) {
             description = {
@@ -278,14 +285,38 @@ export default class ogl {
      * @returns boolean     Whether the update succeeded
      */
      updateDynamicObject(object_id, position=null, orientation=null, object_description=null) {
-        if (!object_id in dynamic_objects_descriptions) {
+        console.log("OGL updateDynamicObject: " + object_id);
+        if (!(object_id in dynamic_objects_descriptions)) {
             console.log("WARNING: object_id " + object_id + " is is not in the scene, cannot update object");
             return false;
         }
-        // TODO: implement the update mechanism here
-        // as the Mesh properties cannot be changed, we probably need to delete the mesh and recreate a new one with the new description
-        //dynamic_objects_descriptions[object_id] = description;
-        //dynamic_objects_meshes[object_id] = mesh;
+        const old_position = dynamic_objects_meshes[object_id].position;
+        let new_position = {"x":old_position[0], "y": old_position[1], "z": old_position[2]};
+        if (position != null) {
+            new_position = {...position};
+        }
+        const old_orientation = dynamic_objects_meshes[object_id].quaternion;
+        let new_orientation = {"x":old_orientation[0], "y": old_orientation[1], "z": old_orientation[2], "w": old_orientation[3]};
+        if (orientation != null) {
+            new_orientation = {...orientation};
+        }
+
+        if (object_description == null) {
+            // update only the pose
+            dynamic_objects_meshes[object_id].position = new_position;
+            dynamic_objects_meshes[object_id].quaternion = new_orientation;
+            return true;
+        }
+        // check whether anything changed in the description
+        const old_object_description = dynamic_objects_descriptions[object_id];
+        if (JSON.stringify(old_object_description) === JSON.stringify(object_description)) {
+            // nothing to do
+            return true;
+        }
+        let new_object_description = {...object_description};
+        // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
+        this.removeDynamicObject(object_id);
+        this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
         return true;
     }
 
@@ -421,12 +452,26 @@ export default class ogl {
         camera.perspective({aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000});
     }
 
+    removeDynamicObject(object_id) {
+        console.log("OGL removeDynamicObject: " + object_id);
+        if (!(object_id in dynamic_objects_meshes)) {
+            console.log("WARNING: tried to delete object " + object_id + " which is not in the scene")
+            return;
+        }
+        let mesh = dynamic_objects_meshes[object_id];
+        this.remove(mesh);
+        mesh = null;
+        delete dynamic_objects_meshes[object_id];
+        delete dynamic_objects_descriptions[object_id];
+    }
+
     /**
      * Removes the provided model from the scene and all the handlers it mit be registered with.
      *
      * @param model     The model to remove
      */
     remove(model) {
+        console.log("OGL remove object " + model.id);
         // TODO: this assumes that all objects are children of the root node!
         // We should call something like model.parent.removeChild(model);
         scene.removeChild(model);
@@ -439,6 +484,12 @@ export default class ogl {
      *  Removes all objects from the scene
      */
     clearScene() {
+        // dynamic objects
+        for (var object_id in dynamic_objects_descriptions){
+            this.removeDynamicObject(object_id);
+        }
+
+        // normal models
         while (scene.children.length > 0) {
             let child = scene.children[0];
             scene.removeChild(child);

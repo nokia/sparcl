@@ -76,6 +76,7 @@ const phone2_queue = "/exchange/esoptron/phone2_queue";
 
 const waypoint_queue = "/amq/queue/waypoint_queue";
 const chair_reservation_queue = "/amq/queue/chair_reservation_queue";
+const chair_reservation_queue = "/exchange/esoptron/chair_reservation_queue"; // "/amq/queue/chair_reservation_queue";
 
 let throttleCounter1 = 0;
 let throttleCounter2 = 0;
