@@ -33,9 +33,9 @@
     let isLocationAccessRefused = false;
     let isHeadless = false;
     let currentSharedValues = {};
-    let p2p;
+    let p2p = null; // PeerJS module (optional)
 
-    let rmq = undefined; // RabbitMQ module
+    let rmq = null; // RabbitMQ module (optional)
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
@@ -183,7 +183,7 @@
                 viewerInstance?.onNetworkEvent(data);
                 spectator?.onNetworkEvent(data);
             };
-            rmq.rabbitmq_connection(rmq_callback);
+            rmq.connectWithReceiveCallback(rmq_callback);
         });
     })
 
@@ -276,7 +276,13 @@
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
     function handleBroadcast(event) {
-        p2p?.send(event.detail);
+        if (p2p != null) {
+            p2p.send(event.detail);
+        }
+
+        if (rmq != null) {
+            rmq.send(event.detail);
+        }
     }
 
     /**
