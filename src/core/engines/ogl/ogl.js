@@ -267,8 +267,8 @@ export default class ogl {
         const mesh = createModel(gl, description.shape,
             description.color, description.transparent,
             description.options, description.scale);
-        mesh.position.set(position.x, position.y, position.z);
-        mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        mesh.position.set(position);
+        mesh.quaternion.set(orientation);
         scene.addChild(mesh);
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
@@ -291,28 +291,26 @@ export default class ogl {
             return false;
         }
         const old_position = dynamic_objects_meshes[object_id].position;
-        let new_position = {"x":old_position[0], "y": old_position[1], "z": old_position[2]};
+        let new_position = [old_position[0], old_position[1], old_position[2]];
         if (position != null) {
-            new_position = {...position};
+            new_position = [position[0], position[1], position[2]];
         }
-        const old_orientation = dynamic_objects_meshes[object_id].quaternion;
-        let new_orientation = {"x":old_orientation[0], "y": old_orientation[1], "z": old_orientation[2], "w": old_orientation[3]};
-        if (orientation != null) {
-            new_orientation = {...orientation};
-        }
+        dynamic_objects_meshes[object_id].position = new_position;
 
-        if (object_description == null) {
-            // update only the pose
-            dynamic_objects_meshes[object_id].position = new_position;
-            dynamic_objects_meshes[object_id].quaternion = new_orientation;
-            return true;
+        const old_orientation = dynamic_objects_meshes[object_id].quaternion;
+        let new_orientation = [old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]];
+        if (orientation != null) {
+            new_orientation = [orientation[0], orientation[1], orientation[2], orientation[3]];
         }
+        dynamic_objects_meshes[object_id].quaternion = new_orientation;
+
         // check whether anything changed in the description
         const old_object_description = dynamic_objects_descriptions[object_id];
         if (JSON.stringify(old_object_description) === JSON.stringify(object_description)) {
             // nothing to do
             return true;
         }
+        console.log(object_id + " has changed!");
         let new_object_description = {...object_description};
         // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
         this.removeDynamicObject(object_id);
