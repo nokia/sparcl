@@ -23,6 +23,8 @@
 
     let parentInstance;
 
+    import {createEventDispatcher} from 'svelte';
+    const dispatcher = createEventDispatcher();
 
     /**
      * Initial setup.
@@ -156,8 +158,8 @@
 
             let data = events.agent_geopose_updated;
             const agent_id = data.agent_id;
-            let timestamp = new Date().getTime();
-            // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+            let timestamp = new Date().getTime(); // TODO: use the timestamp from the message
+            // We create a new spatial content record just for placing this object
             let object_id = agent_id + '_' +  timestamp; // just a proposal
 
             let object_description = {
@@ -202,7 +204,7 @@
                 //console.log(relativePositionENU);
                 //console.log(planarDistance);
 
-                if (planarDistance < 0.25 || (dLat < 0.000002 && dLon < 0.000002 && dHeight < 0.75)) {
+                if (planarDistance < 0.25 || (dLat < 0.000002 && dLon < 0.000002 && dHeight < 2.0)) {
                     console.log("WAYPOINT HIT!");
                     new Audio('media/audio/ding-40142.mp3').play();
                     parentInstance.getRenderer().remove(robotWaypointModel);
@@ -244,21 +246,62 @@
                 new_object_description.scale = [0.25, 0.25, 0.25];
             }
             parentInstance.getRenderer().updateDynamicObject(chair_id, null, null, new_object_description);
-            /*
-            let mesh = parentInstance.getRenderer().getDynamicObjectMesh(chair_id);
-            if (mesh == null) {
-                console.log("WARNING: this chair is not in this scene!");
-                return;
-            }
-            if (reserved) {
-                mesh.scale = [0.10, 0.10, 0.10];
-            } else {
-                mesh.scale = [0.25, 0.25, 0.25];
-            }
-            */
+
             new Audio('media/audio/news-ting-6832.mp3').play();
         }
      }
+
+    function shareCameraPose(position, quaternion) {
+        const timestamp = new Date().getTime();
+        const agent_id = "phone2";
+        const object_id = agent_id + '_' +  timestamp; // just a proposal
+        const globalObjectPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(position, quaternion);
+        const geoPose = {
+            "position": {
+                "lat": globalObjectPose.position.lat,
+                "lon": globalObjectPose.position.lon,
+                "h": globalObjectPose.position.h
+            },
+            "quaternion": {
+                "x": globalObjectPose.quaternion.x,
+                "y": globalObjectPose.quaternion.y,
+                "z": globalObjectPose.quaternion.z,
+                "w": globalObjectPose.quaternion.w
+            }
+        }
+        const object_description = {
+            'version': 2,
+            'color': [1.0, 1.0, 0.0, 1.0],
+            'shape': PRIMITIVES.sphere,
+            'scale': [0.05, 0.05, 0.05],
+            'transparent': false,
+            'options': {}
+        };
+        const content = {
+            "id": agent_id, // stream ID
+            "type": "geopose_stream", //high-level OSCP type
+            "title": object_id, // datapoint ID = stream ID + timestamp
+            "refs": [],
+            "geopose": geoPose,
+            "object_description": object_description
+        }
+        const scr = {
+            "content": content,
+            "id": object_id, // datapoint ID = stream ID + timestamp
+            "tenant": "IROS2022demo",
+            "type": "geopose_stream",
+            "timestamp": timestamp
+        }
+        const message_body = {
+            "scr": scr,
+            "sender": "phone2",
+            "timestamp": timestamp
+        }
+        dispatcher('broadcast', {
+            event: 'local_pose_updated',
+            value: message_body
+        });
+    }
 
     /**
      * Handles update loop when AR Cloud mode is used.
@@ -301,6 +344,15 @@
         if ($recentLocalisation.geopose?.position === undefined) {
             reticle.visible = false;
         }
+/*
+        if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
+            try {
+                shareCameraPose(floorPose.transform.position, floorPose.transform.orientation);
+            } catch (error) {
+                // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
+            }
+        }
+*/
     }
 
     /**

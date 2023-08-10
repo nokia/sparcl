@@ -503,20 +503,19 @@
                     }
                     break;
                 case "sensor_stream":
-                    {
-                        let chair_id_index = record.content.definitions?.findIndex(function(key_value_pair) {
-                            return key_value_pair.type === "chair_id"; // WARNING: a 'key' is called 'type' in the SCR definitions
-                        }); // -1 if not found
-                        if (chair_id_index >= 0) {
-                            let globalObjectPose = record.content.geopose;
-                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                            let chair_id = record.content.definitions[chair_id_index].value;
-                            if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
-                                tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                            } else {
-                                tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                            }
+                    let chair_id_index = record.content.definitions?.findIndex(function(key_value_pair) {
+                        return key_value_pair.type === "chair_id"; // WARNING: a 'key' is called 'type' in the SCR definitions
+                    }); // -1 if not found
+                    if (chair_id_index >= 0) {
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        let chair_id = record.content.definitions[chair_id_index].value;
+                        if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
+                            tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                        } else {
+                            tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
                         }
+                    }
 
                     // TODO: addObject should return some ID in the scene
                     // the sensor's real-world ID shoudl be an entry in the SCR
@@ -524,7 +523,6 @@
                     // when we receive a new sensor value, we check the incoming sensorID, look it up in the map
                     // if it does not exist, we create a model for it with tdEngine.addObject()
                     // if it exists, we retrieve the corresponding model and manipulate it
-                    }
                     break;
                 default:
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);
