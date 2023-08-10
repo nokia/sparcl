@@ -292,15 +292,19 @@ export default class ogl {
         }
         const old_position = dynamic_objects_meshes[object_id].position;
         let new_position = [old_position[0], old_position[1], old_position[2]];
+        //let new_position = new Vec3(old_position[0], old_position[1], old_position[2]);
         if (position != null) {
             new_position = [position[0], position[1], position[2]];
+            //new_position = new Vec3(position[0], position[1], position[2]);
         }
         dynamic_objects_meshes[object_id].position = new_position;
 
         const old_orientation = dynamic_objects_meshes[object_id].quaternion;
         let new_orientation = [old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]];
+        //let new_orientation = new Quat(old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]);
         if (orientation != null) {
             new_orientation = [orientation[0], orientation[1], orientation[2], orientation[3]];
+            //new_orientation = new Quat(orientation[0], orientation[1], orientation[2], orientation[3]);
         }
         dynamic_objects_meshes[object_id].quaternion = new_orientation;
 
