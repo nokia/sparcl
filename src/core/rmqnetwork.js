@@ -5,8 +5,6 @@ const rmquser = config.user;
 const rmqpassword = config.password;
 const hostname = config.hostname;
 const rmqport = config.rmqport;
-const robot1_queue = config.robot1_queue;
-const robot2_queue = config.robot2_queue;
 */
 const rmquser = "rmquser";
 const rmqpassword = "rmqpassword";
@@ -23,13 +21,10 @@ const hostname = "nloc.duckdns.org";
 const rmqport = "8024"; // Secure WebSockets Web-STOMP (wss://)
 
 const rmq_topic_geopose_update = "/exchange/esoptron/geopose_update.#";
-const waypoint_topic = "/exchange/esoptron/waypoint"; //"/amq/queue/waypoint_queue";
-const chair_reservation_topic = "/exchange/esoptron/chair_reservation"; // "/amq/queue/chair_reservation_queue";
+const rmq_topic_waypoint = "/exchange/esoptron/waypoint"; //"/amq/queue/waypoint_queue";
+const rmq_topic_chair_reservation = "/exchange/esoptron/chair_reservation"; // "/amq/queue/chair_reservation_queue";
 
 let throttleCounter1 = 0;
-let throttleCounter2 = 0;
-let robot1Color = [1.0, 1.0, 0.0];
-let robot2Color = [0.0, 1.0, 0.0];
 
 let stomp = undefined;
 let rmqClient = null;
@@ -41,7 +36,9 @@ export function connectWithReceiveCallback(onReceiveCallback) {
     // See https://www.rabbitmq.com/stomp.html
     import('stompjs').then(stompModule => {
         stomp = stompModule.default;
-        rmqClient = stomp.client('wss://' + hostname + ':' + rmqport + '/ws');
+        const rmq_url = 'wss://' + hostname + ':' + rmqport + '/ws';
+        console.log("Connecting to RMQ " + rmq_url);
+        rmqClient = stomp.client(rmq_url);
         rmqClient.debug = function(str) {
             // for debugging, we can print all received messages to the console (or even to a separate HTML view)
             //console.log(str + "\n");
@@ -56,8 +53,11 @@ export function connectWithReceiveCallback(onReceiveCallback) {
             // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
             // 3. registers a subscription against the queue, for the current STOMP session.
 
+            console.log("Subscribing to topic " + rmq_topic_geopose_update)
             rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
                 const msg = JSON.parse(d.body);
+                //console.log(msg);
+
                 const timestamp = msg.timestamp || Date.now();
                 const agentId = msg.agent_id || "";
                 const agentGeopose = msg.geopose || new GeoPose();
@@ -65,7 +65,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 const agentColor = [msg.avatar.color.r, msg.avatar.color.g, msg.avatar.color.b] || [1.0, 1.0, 1.0];
 
                 throttleCounter1 = throttleCounter1 + 1;
-                if (throttleCounter1 > 10) {  // TODO: what is a sensible number here?
+                if (throttleCounter1 > 5) {  // TODO: what is a sensible number here?
                     throttleCounter1 = 0;
                     if (updateFunction) {
                         const data = {
@@ -82,7 +82,8 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 }
             });
 
-            rmqClient.subscribe(waypoint_topic, function (d) {
+            console.log("Subscribing to topic " + rmq_topic_waypoint)
+            rmqClient.subscribe(rmq_topic_waypoint, function (d) {
                 const msg = JSON.parse(d.body);
                 console.log(msg);
                 let waypointGeopose = msg.geopose || null;
@@ -104,7 +105,8 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 updateFunction(data);
             });
 
-            rmqClient.subscribe(chair_reservation_topic, function (d) {
+            console.log("Subscribing to topic " + rmq_topic_chair_reservation)
+            rmqClient.subscribe(rmq_topic_chair_reservation, function (d) {
                 const msg = JSON.parse(d.body);
                 console.log(msg);
                 const data = {

@@ -176,10 +176,7 @@
         console.log("loading RabbitMQ module...");
         import('@src/core/rmqnetwork').then(rmqModule => {
             rmq = rmqModule;
-            console.log("connecting to RMQ...")
             let rmq_callback = (data) => {
-                //console.log("App received update:");
-                //console.log(data);
                 viewerInstance?.onNetworkEvent(data);
                 spectator?.onNetworkEvent(data);
             };
