@@ -2,7 +2,7 @@
 
 import {Program, TextureLoader, Vec3} from 'ogl';
 
-const shader = {
+const complex_shader = {
     vertex: /* glsl */ `
         attribute vec3 position;
         #ifdef UV
@@ -133,7 +133,7 @@ const shader = {
             return pow(color, vec3(1.0 / 2.2));
         }
         vec3 getNormal() ${`{`}
-            #ifdef NORMAL_MAP  
+            #ifdef NORMAL_MAP
                 vec3 pos_dx = dFdx(vMPos.xyz);
                 vec3 pos_dy = dFdy(vMPos.xyz);
                 vec2 tex_dx = dFdx(vUv);
@@ -181,7 +181,7 @@ const shader = {
             float level0 = floor(blend);
             float level1 = min(ENV_LODS, level0 + 1.0);
             blend -= level0;
-            
+
             // Sample the specular env map atlas depending on the roughness value
             vec2 uvSpec = cartesianToPolar(reflection);
             uvSpec.y /= 2.0;
@@ -195,7 +195,7 @@ const shader = {
             vec3 specular1 = RGBMToLinear(texture2D(tEnvSpecular, uv1)).rgb;
             vec3 specularLight = mix(specular0, specular1, blend);
             diffuse = diffuseLight * diffuseColor;
-            
+
             // Bit of extra reflection for smooth materials
             float reflectivity = pow((1.0 - roughness), 2.0) * 0.05;
             specular = specularLight * (specularColor * brdf.x + brdf.y + reflectivity);
@@ -238,7 +238,7 @@ const shader = {
             float D = microfacetDistribution(roughness, NdH);
             vec3 diffuseContrib = (1.0 - F) * (diffuseColor / PI);
             vec3 specContrib = F * G * D / (4.0 * NdL * NdV);
-            
+
             // Shading based off lights
             vec3 color = NdL * uLightColor * (diffuseContrib + specContrib);
             // Add lights spec to alpha for reflections on transparent surfaces (glass)
@@ -251,17 +251,17 @@ const shader = {
             color += diffuseIBL + specularIBL;
             // Add IBL spec to alpha for reflections on transparent surfaces (glass)
             alpha = max(alpha, max(max(specularIBL.r, specularIBL.g), specularIBL.b));
-            #ifdef OCC_MAP  
+            #ifdef OCC_MAP
                 // TODO: figure out how to apply occlusion
                 // color *= SRGBtoLinear(texture2D(tOcclusion, vUv)).rgb;
             #endif
-            #ifdef EMISSIVE_MAP  
+            #ifdef EMISSIVE_MAP
                 vec3 emissive = SRGBtoLinear(texture2D(tEmissive, vUv)).rgb * uEmissive;
                 color += emissive;
             #endif
             // Convert to sRGB to display
             gl_FragColor.rgb = linearToSRGB(color);
-            
+
             // Apply uAlpha uniform at the end to overwrite any specular additions on transparent surfaces
             gl_FragColor.a = alpha * uAlpha;
         }
@@ -271,7 +271,7 @@ const shader = {
 
 export function createGltfProgram(node) {
     const gltf = node.program.gltfMaterial || {};
-    let { vertex, fragment } = shader;
+    let { vertex, fragment } = complex_shader;
 
     // luckily these are passed along with the node
     let gl = node.gl;
@@ -354,6 +354,78 @@ export function createGltfProgram(node) {
 
             uAlpha: { value: 1 },
             uAlphaCutoff: { value: gltf.alphaCutoff },
+        },
+        transparent: gltf.alphaMode === 'BLEND',
+        cullFace: gltf.doubleSided ? null : gl.BACK,
+    });
+
+    return program;
+}
+
+const simple_shader = {
+    vertex: /* glsl */ `
+        attribute vec3 position;
+        #ifdef UV
+            attribute vec2 uv;
+        #else
+            const vec2 uv = vec2(0);
+        #endif
+        #ifdef NORMAL
+            attribute vec3 normal;
+        #else
+            const vec3 normal = vec3(0);
+        #endif
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+
+        varying vec2 vUv;
+
+        void main() ${`{`}
+            vec4 pos = vec4(position, 1);
+            vUv = uv;
+            vec4 vMVPos = modelViewMatrix * pos;
+            gl_Position = projectionMatrix * vMVPos;
+        }
+        `,
+
+    fragment: /* glsl */ `
+        precision highp float;
+        uniform vec4 uBaseColorFactor;
+        uniform sampler2D tBaseColor;
+
+        varying vec2 vUv;
+
+        void main() ${`{`}
+            vec4 baseColor = uBaseColorFactor;
+            #ifdef COLOR_MAP
+                baseColor *= texture2D(tBaseColor, vUv);
+            #endif
+            gl_FragColor.rgb = baseColor.rgb;
+            gl_FragColor.a = baseColor.a;
+        }
+    `,
+};
+
+export function createSimpleGltfProgram(node) {
+    const gltf = node.program.gltfMaterial || {};
+    let { vertex, fragment } = simple_shader;
+
+    let defines = `
+        ${node.geometry.attributes.uv ? `#define UV` : ``}
+        ${node.geometry.attributes.normal ? `#define NORMAL` : ``}
+        ${gltf.baseColorTexture ? `#define COLOR_MAP` : ``}
+    `;
+
+    vertex = defines + vertex;
+    fragment = defines + fragment;
+
+    let gl = node.gl;
+    const program = new Program(gl, {
+        vertex,
+        fragment,
+        uniforms: {
+            uBaseColorFactor: { value: gltf.baseColorFactor || [1, 1, 1, 1] },
+            tBaseColor: { value: gltf.baseColorTexture ? gltf.baseColorTexture.texture : null },
         },
         transparent: gltf.alphaMode === 'BLEND',
         cullFace: gltf.doubleSided ? null : gl.BACK,

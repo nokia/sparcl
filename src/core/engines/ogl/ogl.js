@@ -3,8 +3,8 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
-import {createGltfProgram} from '@core/engines/ogl/oglGltfHelper';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, GridHelper, Mesh} from 'ogl';
+import {createGltfProgram, createSimpleGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
@@ -66,6 +66,10 @@ export default class ogl {
     setupEnvironment(gl) {
         camera = new Camera(gl);
         camera.position.set(0, 0, 0);
+
+        // Visualize axes
+        const axes = new AxesHelper(gl, { size: 1, symmetric: true });
+        axes.setParent(scene);
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -141,7 +145,8 @@ export default class ogl {
                     root.setParent(gltfScene);
                     root.traverse((node) => {
                         if (node.program) {
-                            node.program = createGltfProgram(node);
+                            //node.program = createGltfProgram(node);
+                            node.program = createSimpleGltfProgram(node);
                         }
                     });
                 });
@@ -251,8 +256,6 @@ export default class ogl {
         console.log("OGL addDynamicObject: " + object_id);
         console.log(position);
         console.log(orientation);
-        console.log(object_description);
-        console.log(" ");
         let description = object_description;
         if (description == null) {
             description = {
@@ -264,6 +267,8 @@ export default class ogl {
                 'options': {}
             };
         }
+        console.log(description);
+        console.log(" ");
         const mesh = createModel(gl, description.shape,
             description.color, description.transparent,
             description.options, description.scale);
@@ -285,7 +290,7 @@ export default class ogl {
      * @returns boolean     Whether the update succeeded
      */
      updateDynamicObject(object_id, position=null, orientation=null, object_description=null) {
-        console.log("OGL updateDynamicObject: " + object_id);
+        //console.log("OGL updateDynamicObject: " + object_id);
         if (!(object_id in dynamic_objects_descriptions)) {
             console.log("WARNING: object_id " + object_id + " is is not in the scene, cannot update object");
             return false;
