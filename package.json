@@ -37,6 +37,8 @@
     "@oarc/gpp-access": "^0.0.9",
     "@oarc/scd-access": "^0.1.11",
     "@oarc/ssd-access": "^0.2.10",
+    "@loaders.gl/core": "^3.4.13",
+    "@loaders.gl/ply": "^3.4.13",
     "amqplib": "^0.10.2",
     "automerge": "^0.14.2",
     "chai": "^4.2.0",
@@ -51,7 +53,6 @@
     "stompjs": "^2.3.3",
     "svelte": "<3.49",
     "thumb-ui": "^0.0.17",
-    "unified-3d-loader": "^1.1.5",
     "uuid": "^8.3.2"
   }
 }

@@ -5,6 +5,7 @@
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, GridHelper, Mesh} from 'ogl';
 import {createGltfProgram, createSimpleGltfProgram} from '@core/engines/ogl/oglGltfHelper';
+import {createSimplePointCloudProgram, MyPLYLoader} from '@core/engines/ogl/oglPlyHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
@@ -386,6 +387,34 @@ export default class ogl {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
+    }
+
+    addPointCloud(url, position, orientation) {
+        console.log("Adding point cloud " + url)
+
+        MyPLYLoader.load(gl, url)
+            .then((geometry) => {
+                if (geometry == null) {
+                    return; // do nothing
+                }
+
+                const pclProgram = createSimplePointCloudProgram(gl);
+
+                let pclMesh = new Mesh(gl, {
+                    mode: gl.POINTS,
+                    geometry: geometry,
+                    program: pclProgram,
+                    //frustumCulled: false,
+                    //renderOrder: 0
+                });
+
+                //console.log(position);
+                //console.log(orientation);
+                pclMesh.position.set(position.x, position.y, position.z);
+                pclMesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+
+                pclMesh.setParent(scene);// this is very slow
+            });
     }
 
     /**

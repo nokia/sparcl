@@ -428,6 +428,7 @@
                 case "MODEL_3D":
                 case "3D": // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
                 case "placeholder": // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
+                {
                     showContentsLog = true; // show log if at least one 3D object was received
 
                     let globalObjectPose = record.content.geopose;
@@ -476,8 +477,8 @@
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
                     break;
-
-                case "ephemeral":
+                }
+                case "ephemeral": {
                     // ISMAR2021 demo
                     if (record.tenant === 'ISMAR2021demo') {
                         //console.log("ISMAR2021demo object received!")
@@ -487,7 +488,8 @@
                         tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                     }
                     break;
-                case "geopose_stream":
+                }
+                case "geopose_stream": {
                     // IROS2022 demo
                     if (record.tenant === 'IROS2022demo') {
                         //console.log("IROS2022demo object received!")
@@ -502,7 +504,8 @@
                         }
                     }
                     break;
-                case "sensor_stream":
+                }
+                case "sensor_stream": {
                     let chair_id_index = record.content.definitions?.findIndex(function(key_value_pair) {
                         return key_value_pair.type === "chair_id"; // WARNING: a 'key' is called 'type' in the SCR definitions
                     }); // -1 if not found
@@ -524,9 +527,32 @@
                     // if it does not exist, we create a model for it with tdEngine.addObject()
                     // if it exists, we retrieve the corresponding model and manipulate it
                     break;
-                default:
+                }
+                case "POINTCLOUD": {
+                    let globalObjectPose = record.content.geopose;
+                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    let position = localObjectPose.position;
+                    let orientation = localObjectPose.quaternion;
+                    console.log(record.content)
+                    const d_entries = record.content.definitions.entries();
+                    let content_definitions = {}
+                    for (let d_entry of d_entries) {
+                        const d = d_entry[1];
+                        console.log(d);
+                        content_definitions[d.type] = d.value;
+                    }
+                    const url = content_definitions["url"];
+                    //const url = record.content.refs[0].url;
+
+                    // TODO: as we use local-floor coordinate space, everything is shifted vertically by the user height.
+                    position.y = position.y + 1.0; // 1 m shift
+                    tdEngine.addPointCloud(url, position, orientation)
+                    break;
+                }
+                default: {
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);
                     console.log(record.content);
+                }
                 }
             })
         })
