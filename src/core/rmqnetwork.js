@@ -21,8 +21,8 @@ const hostname = "nloc.duckdns.org";
 const rmqport = "8024"; // Secure WebSockets Web-STOMP (wss://)
 
 const rmq_topic_geopose_update = "/exchange/esoptron/geopose_update.#";
-const rmq_topic_waypoint = "/exchange/esoptron/waypoint"; //"/amq/queue/waypoint_queue";
-const rmq_topic_chair_reservation = "/exchange/esoptron/chair_reservation"; // "/amq/queue/chair_reservation_queue";
+const rmq_topic_waypoint = "/exchange/esoptron/waypoint";
+const rmq_topic_chair_reservation = "/exchange/esoptron/chair_reservation";
 
 let throttleCounter1 = 0;
 
@@ -65,7 +65,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 const agentColor = [msg.avatar.color.r, msg.avatar.color.g, msg.avatar.color.b] || [1.0, 1.0, 1.0];
 
                 throttleCounter1 = throttleCounter1 + 1;
-                if (throttleCounter1 > 5) {  // TODO: what is a sensible number here?
+                if (throttleCounter1 > 10) {  // TODO: what is a sensible number here?
                     throttleCounter1 = 0;
                     if (updateFunction) {
                         const data = {
