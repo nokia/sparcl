@@ -3,9 +3,10 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, GridHelper, Mesh} from 'ogl';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry} from 'ogl';
 import {createGltfProgram, createSimpleGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 import {createSimplePointCloudProgram, MyPLYLoader} from '@core/engines/ogl/oglPlyHelper';
+import {loadLogoTexture, createLogoProgram} from '@core/engines/ogl/oglLogoHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
@@ -72,6 +73,21 @@ export default class ogl {
         axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
         axesHelper.setParent(scene);
 
+        // Our camera images are captured into texture 0, and therefore the first loaded textured object (that normally gets text id 0)
+        // in the scene sometimes is painted not from its own texture but from the camera image texture.
+        // To overcome this problem, we create an OGL texture here which we will never use but it reserves ID 0 in view of OGL.
+        loadLogoTexture(gl, "/media/icons/icon_x48.png")
+            .then((texture) => {
+                console.log("DUmmy TEXID: " + texture.id);
+                const dummyProgram = createLogoProgram(gl, texture);
+                const dummyGeometry = new Plane(gl, {width:0.1, height: 0.1});
+                const dummyMesh = new Mesh(gl, {
+                    geometry: dummyGeometry,
+                    program: dummyProgram,
+                    frustumCulled: false
+                })
+                dummyMesh.setParent(scene);
+            });
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -415,6 +431,24 @@ export default class ogl {
                 pclMesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
                 pclMesh.setParent(scene);// this is very slow
+            });
+    }
+
+    addLogoObject(url, position, orientation) {
+        console.log("OGL addLogoObject " + url);
+        loadLogoTexture(gl, url)
+            .then((texture) => {
+                const logoProgram = createLogoProgram(gl, texture);
+
+                const planeGeometry = new Plane(gl, {width: 1.2, height: 1.2});
+                const plane = new Mesh(gl, {
+                    geometry: planeGeometry,
+                    program: logoProgram,
+                    frustumCulled: false
+                });
+                plane.position = position;
+                plane.orientation = orientation;
+                plane.setParent(scene);
             });
     }
 

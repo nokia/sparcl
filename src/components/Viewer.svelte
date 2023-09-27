@@ -117,7 +117,6 @@
             });
     }
 
-    // TODO: rename to onXrFrameUpdate
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -528,6 +527,7 @@
                     // if it exists, we retrieve the corresponding model and manipulate it
                     break;
                 }
+                /*
                 case "POINTCLOUD": {
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
@@ -547,6 +547,15 @@
                     // TODO: as we use local-floor coordinate space, everything is shifted vertically by the user height.
                     position.y = position.y + 1.0; // 1 m shift
                     tdEngine.addPointCloud(url, position, orientation)
+                    break;
+                }
+                */
+                case "ICON": {
+                    let globalObjectPose = record.content.geopose;
+                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    const url = record.content.refs[0].url;
+                    //const url = record.content.definitions["url"];
+                    tdEngine.addLogoObject(url, localObjectPose.position, localObjectPose.orientation);
                     break;
                 }
                 default: {
