@@ -356,7 +356,7 @@ export function createGltfProgram(node) {
             uAlphaCutoff: { value: gltf.alphaCutoff },
         },
         transparent: gltf.alphaMode === 'BLEND',
-        cullFace: gltf.doubleSided ? null : gl.BACK,
+        cullFace: gltf.doubleSided ? gl.NONE : gl.BACK,
     });
 
     return program;
@@ -428,7 +428,7 @@ export function createSimpleGltfProgram(node) {
             tBaseColor: { value: gltf.baseColorTexture ? gltf.baseColorTexture.texture : null },
         },
         transparent: gltf.alphaMode === 'BLEND',
-        cullFace: gltf.doubleSided ? null : gl.BACK,
+        cullFace: gltf.doubleSided ? gl.NONE : gl.BACK,
     });
 
     return program;

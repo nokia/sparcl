@@ -18,7 +18,7 @@ import {printOglTransform, checkGLError} from '@core/devTools';
 import {quat, vec3} from 'gl-matrix';
 
 
-let scene, camera, renderer, gl;
+let scene, camera, axesHelper, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
 let _geo2ArTransformNode;
 let _ar2GeoTransformNode;
@@ -69,8 +69,9 @@ export default class ogl {
         camera.position.set(0, 0, 0);
 
         // Visualize axes
-        const axes = new AxesHelper(gl, { size: 1, symmetric: true });
-        axes.setParent(scene);
+        axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
+        axesHelper.setParent(scene);
+
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -390,7 +391,7 @@ export default class ogl {
     }
 
     addPointCloud(url, position, orientation) {
-        console.log("Adding point cloud " + url)
+        console.log("Adding point cloud " + url);
 
         MyPLYLoader.load(gl, url)
             .then((geometry) => {
