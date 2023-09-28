@@ -10,9 +10,7 @@
     import Parent from '@components/Viewer';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
     import {recentLocalisation} from '@src/stateStore';
-
     import { get } from 'svelte/store';
-    import { recentLocalisation } from '@src/stateStore';
 
     // just for drawing an agent
     import {PRIMITIVES} from "@core/engines/ogl/modelTemplates";
