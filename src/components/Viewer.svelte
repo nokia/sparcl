@@ -555,7 +555,15 @@
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                     const url = record.content.refs[0].url;
                     //const url = record.content.definitions["url"];
-                    tdEngine.addLogoObject(url, localObjectPose.position, localObjectPose.orientation);
+                    const width = 1.0;
+                    if (record.content.definitions["width"] != undefined) {
+                        width = record.content.definitions["width"];
+                    }
+                    const height = 1.0;
+                    if (record.content.definitions["height"] != undefined) {
+                        height = record.content.definitions["height"];
+                    }
+                    tdEngine.addLogoObject(url, localObjectPose.position, localObjectPose.orientation, width, height);
                     break;
                 }
                 default: {

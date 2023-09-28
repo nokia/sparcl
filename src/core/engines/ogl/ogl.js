@@ -421,7 +421,7 @@ export default class ogl {
                     mode: gl.POINTS,
                     geometry: geometry,
                     program: pclProgram,
-                    //frustumCulled: false,
+                    //frustumCulled: false, // TODO: try to turn on, maybe it gets faster
                     //renderOrder: 0
                 });
 
@@ -434,13 +434,16 @@ export default class ogl {
             });
     }
 
-    addLogoObject(url, position, orientation) {
+    addLogoObject(url, position, orientation, width=1.0, height=1.0) {
         console.log("OGL addLogoObject " + url);
         loadLogoTexture(gl, url)
             .then((texture) => {
                 const logoProgram = createLogoProgram(gl, texture);
 
-                const planeGeometry = new Plane(gl, {width: 1.2, height: 1.2});
+                const planeGeometry = new Plane(gl, {
+                    width: width,
+                    height: height
+                });
                 const plane = new Mesh(gl, {
                     geometry: planeGeometry,
                     program: logoProgram,
