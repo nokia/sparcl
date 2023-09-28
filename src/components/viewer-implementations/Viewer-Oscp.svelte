@@ -52,7 +52,7 @@
             parentInstance.getRenderer().setExperimentTapHandler(myTapHandler);
         }
 
-        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
@@ -342,7 +342,6 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
-        parentInstance.onXrFrameUpdate(time, frame, floorPose);
 
         if (!hitTestSource) {
             console.log("HitTestSource is invalid :(");
@@ -382,6 +381,7 @@
             }
         }
 */
+        parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
 
     /**
