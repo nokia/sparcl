@@ -273,8 +273,6 @@ export default class ogl {
      */
     addDynamicObject(object_id, position, orientation, object_description=null) {
         console.log("OGL addDynamicObject: " + object_id);
-        console.log(position);
-        console.log(orientation);
         let description = object_description;
         if (description == null) {
             description = {
@@ -286,8 +284,10 @@ export default class ogl {
                 'options': {}
             };
         }
-        console.log(description);
-        console.log(" ");
+        //console.log(description);
+        //console.log(position);
+        //console.log(orientation);
+        //console.log(" ");
         const mesh = createModel(gl, description.shape,
             description.color, description.transparent,
             description.options, description.scale);

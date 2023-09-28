@@ -9,6 +9,7 @@
 <script>
     import Parent from '@components/Viewer';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
+    import {recentLocalisation} from '@src/stateStore';
 
     import { get } from 'svelte/store';
     import { recentLocalisation } from '@src/stateStore';
@@ -44,8 +45,9 @@
     async function startSession() {
         let requiredXrFeatures = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
         let optionalXrFeatures = [];
-
         // TODO: do we need anchors at all?
+
+        // TODO: move the whole reticle and tap handler stuff into the base Viewer
         if (useReticle) {
             requiredXrFeatures.push('hit-test')
             // our callback for hit test results (event handler for screen tap)
@@ -97,7 +99,7 @@
         // TODO: is this needed at all?
         // HACK: this is to initialize the internal alignment matrices.
         // Normally this is done when the first contents arrives, but we have no contents yet at this point.
-        parentInstance.getRenderer().beginSpatialContentRecords(latestLocalPose, latestGlobalPose);
+        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, latestGlobalPose);
 
         // local target pose is from reticle
         let localTargetPose = {};
@@ -209,10 +211,7 @@
                 "type": "geopose_stream",
                 "timestamp": timestamp
             };
-
-            let latestGlobalPose = $recentLocalisation.geopose;
-            let latestLocalPose = $recentLocalisation.floorpose;
-            parentInstance.placeContent(latestLocalPose, latestGlobalPose, [[scr]]); // WARNING: wrap into an array
+            parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
 
 
             // if the robot is close to the target in global coordinates, make the target disappear
@@ -343,14 +342,13 @@
      */
     function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
 
-        if (!hitTestSource) {
+        if (useReticle && !hitTestSource) {
             console.log("HitTestSource is invalid :(");
             return;
         }
 
         checkGLError(myGl, "before creating reticle");
-        if (!reticle) {
-            //xrEngine.setViewPort(); // TODO: is this needed just to clean the GL state?
+        if (useReticle && !reticle) {
             //reticle = parentInstance.getRenderer().addReticle();
             //reticle = parentInstance.getRenderer().addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/Duck.glb');
             //reticle = parentInstance.getRenderer().addPlaceholder([], {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1});
