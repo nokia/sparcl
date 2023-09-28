@@ -277,8 +277,8 @@
             p2p.send(event.detail);
         }
 
-        if (rmq != null) {
-            rmq.send(event.detail);
+        if (rmq != null && event.detail.routing_key != undefined) {
+            rmq.send(event.detail.routing_key, event.detail.value);
         }
     }
 

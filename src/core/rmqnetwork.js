@@ -129,7 +129,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
 }
 
 
-export function send(data) {
+export function send(routing_key, data) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
-    rmqClient.send(rmq_topic_geopose_update, {}, JSON.stringify(data));
+    rmqClient.send(routing_key, {}, JSON.stringify(data));
 }

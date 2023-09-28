@@ -58,6 +58,7 @@
                 xr.initCameraCapture(gl);
 
                 myGl = gl;
+
                 if (useReticle){
                     // request hit testing
                     result.requestReferenceSpace('viewer')
@@ -72,35 +73,28 @@
 
 
     import {robotTargetWaypoint} from '@src/stateStore';
-    import { getRelativeGlobalPosition} from '@core/locationTools';
+    import {getRelativeGlobalPosition} from '@core/locationTools';
     let reticle = null;
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
     function myTapHandler(event) {
-        if (event.y > event.view.outerHeight * 0.75) {
-            // do not react to the lower 25% of the view (where the buttons are)
-            return;
-        }
-
-        //if (parentInstance.hasLostTracking) { // always false (undefined). use parentState/context instead
-        //    console.log("  but tracking is lost :(");
-        //    return;
-        //}
-        //if (!parentInstance.isLocalisationDone) { // always false. use parentState/context instead
-        //    console.log("  but no localization was done yet :(");
-        //    return;
-        //}
         if (reticle == undefined || reticle == null || reticle.visible == false) {
-            console.log("  but reticle is undefined :(");
+            console.log("UI tapped but reticle is undefined :(");
             return;
         }
         if ($recentLocalisation.geopose?.position === undefined || $recentLocalisation.floorpose?.transform?.position === undefined) {
-            console.log("  but the recent localization result is empty :(");
+            console.log("UI tapped but the recent localization result is empty :(");
+            return;
+        }
+
+        if (event.y > event.view.outerHeight * 0.75) {
+            // do not react to the lower 25% of the view (where the buttons are)
             return;
         }
 
         let latestGlobalPose = $recentLocalisation.geopose;
         let latestLocalPose = $recentLocalisation.floorpose.transform;
 
+        // TODO: is this needed at all?
         // HACK: this is to initialize the internal alignment matrices.
         // Normally this is done when the first contents arrives, but we have no contents yet at this point.
         parentInstance.getRenderer().beginSpatialContentRecords(latestLocalPose, latestGlobalPose);
@@ -110,9 +104,38 @@
         localTargetPose["position"] = reticle.position;
         localTargetPose["quaternion"] = reticle.quaternion;
 
+        // determine the global position of the tap and create a (global!) waypoint there
+        let globalTargetPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(localTargetPose.position, localTargetPose.quaternion);
+
+
+        // A set waypoint directly
+        //setWaypointObject(globalTargetPose, localTargetPose, true);
+        //
+        // B publish the waypoint instead and receive it through the messaging system
+        const message_body = {
+            "geopose": globalTargetPose,
+            "active": true,
+            "sender": "nokia83_gabor", // TODO: generate based on user uuid
+            "timestamp": new Date().getTime(), // TODO: use the timestamp from the message,
+            "creator_id": "nokia83_gabor", // TODO: generate based on user uuid
+            "agent_id": "robot2" // TODO: generate based on agent uuid
+        }
+        dispatcher('broadcast', {
+            event: 'waypoint_set',
+            value: message_body,
+            "routing_key": "/exchange/esoptron/waypoint"
+        });
+    }
+
+    // TODO: if there is already one, do not recreate but just move it
+    function setWaypointObject(globalTargetPose, localTargetPose, active=true) {
         // remove any previous waypoint
         if (robotWaypointModel) {
             parentInstance.getRenderer().remove(robotWaypointModel);
+
+        }
+        if (active == false) {
+           return; // nothing more to do
         }
 
         // Create a waypoint object
@@ -122,18 +145,16 @@
         options.radiusBottom = 0.3;
         options.height = 2;
         const fragmentShader = colorfulFragment;
-        const scale = 0.1; const offsetY = 1; const offsetZ=0;
+        const scale = 0.1; const offsetY = 1; const offsetZ = 0;
         robotWaypointModel = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
         robotWaypointModel.scale.set(scale);
         robotWaypointModel.position.y += offsetY * scale;
         robotWaypointModel.position.z += offsetZ * scale;
 
-        // determine the global position of the tap and create a (global!) waypoint there
-        let globalTargetPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(localTargetPose.position, localTargetPose.quaternion);
-
         $robotTargetWaypoint.geopose = globalTargetPose;
         $robotTargetWaypoint.floorpose = localTargetPose;
         console.log("WAYPOINT SET!");
+        console.log($robotTargetWaypoint);
         new Audio('media/audio/ding-36029.mp3').play();
     }
 
@@ -150,15 +171,18 @@
             return parentInstance.onNetworkEvent(events);
         }
 
-        if ('agent_geopose_updated' in events) {
-            if (get(recentLocalisation)?.geopose?.position == undefined) {
-                // we need to localize at least once to be able to place an agent
-                return;
-            }
+        if (get(recentLocalisation)?.geopose?.position == undefined) {
+            // we need to localize at least once to be able to do anything
+            console.log('Network event received but we are not localized yet!');
+            console.log(events);
+            return;
+        }
 
+        if ('agent_geopose_updated' in events) {
             let data = events.agent_geopose_updated;
             const agent_id = data.agent_id;
-            let timestamp = new Date().getTime(); // TODO: use the timestamp from the message
+            const timestamp = data.timestamp;
+            //const timestamp = new Date().getTime(); // TODO: use the timestamp from the message
             // We create a new spatial content record just for placing this object
             let object_id = agent_id + '_' +  timestamp; // just a proposal
 
@@ -217,9 +241,13 @@
         }
 
         if ('waypoint_set' in events) {
-            console.log("Waypoint event received");
-            console.log(events.waypoint_set);
-            // TODO: handle...
+            console.log("Global waypoint event received:");
+            const msg = events.waypoint_set;
+            console.log(msg);
+            const globalTargetPose = msg.geopose;
+            const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
+            const active = msg.active;
+            setWaypointObject(globalTargetPose, localTargetPose, active);
         }
 
         if ('reservation_status_changed' in events) {
@@ -294,12 +322,13 @@
         }
         const message_body = {
             "scr": scr,
-            "sender": "phone2",
-            "timestamp": timestamp
+            "sender": "nokia83_gabor", // TODO: generate based on some agent uuid
+            "timestamp": timestamp,
         }
         dispatcher('broadcast', {
-            event: 'local_pose_updated',
-            value: message_body
+            event: 'agent_geopose_updated',
+            value: message_body,
+            "routing_key": "/exchange/esoptron/geopose_update.nokia83_gabor" // TODO: generate based on some agent uuid
         });
     }
 
