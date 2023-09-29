@@ -468,3 +468,120 @@ export function geodetic_to_enu(lat, lon, h, lat_ref, lon_ref, h_ref) {
     let ecef = geodetic_to_ecef(lat, lon, h);
     return ecef_to_enu(ecef.x, ecef.y, ecef.z, lat_ref, lon_ref, h_ref);
 }
+
+
+
+export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
+    const lamb = toRadians(lat0);
+    const phi = toRadians(lon0);
+    const s = Math.sin(lamb);
+    const N = a / Math.sqrt(1 - e_sq * s * s);
+
+    const sin_lambda = Math.sin(lamb);
+    const cos_lambda = Math.cos(lamb);
+    const sin_phi = Math.sin(phi);
+    const cos_phi = Math.cos(phi);
+
+    const x0 = (h0 + N) * cos_lambda * cos_phi;
+    const y0 = (h0 + N) * cos_lambda * sin_phi;
+    const z0 = (h0 + (1 - e_sq) * N) * sin_lambda;
+
+    const t = cos_lambda * zUp - sin_lambda * yNorth;
+
+    const zd = sin_lambda * zUp + cos_lambda * yNorth;
+    const xd = cos_phi * t - sin_phi * xEast;
+    const yd = sin_phi * t + cos_phi * xEast;
+
+    const x = xd + x0;
+    const y = yd + y0;
+    const z = zd + z0;
+
+    return { "x": x, "y": y, "z": z };
+}
+
+// Convert from ECEF cartesian coordinates to
+// latitude, longitude and height (WGS84)
+export function convertEcefToGeodetic(x, y, z) {
+    const x2 = x * x;
+    const y2 = y * y;
+    const z2 = z * z;
+
+    const e = Math.sqrt(1 - (b / a) * (b / a));
+    const b2 = b * b;
+    const e2 = e * e;
+    const ep = e * (a / b);
+    const r = Math.sqrt(x2 + y2);
+    const r2 = r * r;
+    const E2 = a * a - b * b;
+    const F = 54 * b2 * z2;
+    const G = r2 + (1 - e2) * z2 - e2 * E2;
+    const c = (e2 * e2 * F * r2) / (G * G * G);
+    const s = Math.pow((1 + c + Math.sqrt(c * c + 2 * c)), (1 / 3));
+    const P = F / (3 * Math.pow((s + 1 / s + 1), 2) * G * G); //TODO: this line is probably wrong!
+    const Q = Math.sqrt(1 + 2 * e2 * e2 * P);
+    const ro = -(P * e2 * r) / (1 + Q) + Math.sqrt((a * a / 2) * (1 + 1 / Q) - (P * (1 - e2) * z2) / (Q * (1 + Q)) - P * r2 / 2);
+    const tmp = Math.pow((r - e2 * ro), 2);
+    const U = Math.sqrt(tmp + z2);
+    const V = Math.sqrt(tmp + (1 - e2) * z2);
+    const zo = (b2 * z) / (a * V);
+
+    const height = U * (1 - b2 / (a * V));
+    const lat = Math.atan((z + ep * ep * zo) / r);
+    const temp = Math.atan(y / x);
+    let lon = 0.0;
+    if (x >= 0) {
+        lon = temp;
+    } else if (x < 0 && y >= 0) {
+        lon = Math.PI + temp;
+    } else {
+        lon = temp - Math.PI;
+    }
+
+    const lat0 = lat / (Math.PI / 180); // TODO: toDegrees
+    const lon0 = lon / (Math.PI / 180); // TODO: toDegrees
+    const h0 = height;
+
+    return { "lat": lat0, "lon": lon0, "h": h0 }; // TODO: remove 0 from name
+}
+
+export function convertEnuToGeodetic(xEast, yNorth, zUp, lat_ref, lon_ref, h_ref){
+    const enu = convertEnuToEcef(xEast, yNorth, zUp, lat_ref, lon_ref, h_ref);
+    const geodetic = convertEcefToGeodetic(enu.x, enu.y, enu.z);
+    return geodetic;
+}
+
+export function convertLocalPoseToEnu(localPose, T_local_to_enu) {
+    const enuPose = localPose.clone().multiplyLeft(T_local_to_enu);
+    return enuPose;
+}
+
+
+export function convertLocalPoseToGeoPose(localPose, T_local_to_enu, refGeoPose) {
+    const enuPose = convertLocalPoseToEnu(localPose, T_local_to_enu);
+    const enuPosition = enuPose.getTranslation();
+    const enuRotMat = enuPose.getRotationMatrix3();
+    const enuQuaternion = new Quaternion().fromMatrix3(enuRotMat);
+
+    const dE = enuPosition[0];
+    const dN = enuPosition[1];
+    const dU = enuPosition[2];
+    const lat_ref = refGeoPose.position.lat;
+    const lon_ref = refGeoPose.position.lon;
+    const h_ref = refGeoPose.position.h
+    const geodetic = convertEnuToGeodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
+
+    const geoPose = {
+        "position": {
+            "lat": geodetic.lat,
+            "lon": geodetic.lon,
+            "h": geodetic.h,
+        },
+        "quaternion": {
+            "x": enuQuaternion.x,
+            "y": enuQuaternion.y,
+            "z": enuQuaternion.z,
+            "w": enuQuaternion.w
+        }
+    }
+    return geoPose;
+}

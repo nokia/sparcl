@@ -12,7 +12,7 @@ import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObject
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
 
 import {convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
-    geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees} from '@core/locationTools';
+    geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees, convertEnuToGeodetic} from '@core/locationTools';
 
 import {printOglTransform, checkGLError} from '@core/devTools';
 
@@ -852,7 +852,7 @@ export default class ogl {
         //localENUQuaternion = convertWeb2GeoQuat(localENUQuaternion);
         //localENUPose.quaternion.set(localENUQuaternion[0], localENUQuaternion[1], localENUQuaternion[2], localENUQuaternion[3]);
 
-
+// TODO: rename to enuPose and enuPosition
         let localEnuPosition = vec3.fromValues(
                 localENUPose.position.x,
                 localENUPose.position.y,
@@ -863,20 +863,25 @@ export default class ogl {
         let dN = localEnuPosition[1];
         let dU = localEnuPosition[2];
 
+
         let refGeoPose = _globalImagePose;
-        //TODO: do proper conversion here!
-        // See https://www.movable-type.co.uk/scripts/latlong.html
-        //const R = 6371009; // Earth radius (assuming a sphere)
-        const R = getEarthRadiusAt(refGeoPose.position.lat);
-        let dLon = toDegrees(Math.atan2(dE, R));
-        let dLat = toDegrees(Math.atan2(dN, R));
-        let dHeight = dU;
+//        //TODO: do proper conversion here!
+//        // See https://www.movable-type.co.uk/scripts/latlong.html
+//        //const R = 6371009; // Earth radius (assuming a sphere)
+//        const R = getEarthRadiusAt(refGeoPose.position.lat);
+//        let dLon = toDegrees(Math.atan2(dE, R));
+//        let dLat = toDegrees(Math.atan2(dN, R));
+//        let dHeight = dU;
+
+
+        const geodetic = convertEnuToGeodetic(dE, dN, dU, refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
+
 
         let geoPose = {
             "position": {
-                "lat": refGeoPose.position.lat + dLat,
-                "lon": refGeoPose.position.lon + dLon,
-                "h": refGeoPose.position.h + dHeight,
+                "lat": geodetic.lat, //refGeoPose.position.lat + dLat,
+                "lon": geodetic.lon, //refGeoPose.position.lon + dLon,
+                "h": geodetic.h //refGeoPose.position.h + dHeight,
             },
             "quaternion": {
                 "x": localENUPose.quaternion.x,
