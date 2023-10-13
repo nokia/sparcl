@@ -85,20 +85,20 @@ export function connectWithReceiveCallback(onReceiveCallback) {
             console.log("Subscribing to topic " + rmq_topic_waypoint)
             rmqClient.subscribe(rmq_topic_waypoint, function (d) {
                 const msg = JSON.parse(d.body);
-                console.log(msg);
-                let waypointGeopose = msg.geopose || null;
+                const waypointGeopose = msg.geopose || null;
                 if (waypointGeopose == null) {
                     return;
                 }
-                let agent_id = msg.agent_id || "unknown"; // target agent
-                let creator_id = msg.creator || "unknown";
-                let timestamp = msg.timestamp || 0;
+                const agent_id = msg.agent_id || "unknown"; // target agent
+                const creator_id = msg.creator_id || "unknown";
+                const timestamp = msg.timestamp || 0;
+                const color = msg.color ||  [1.0, 1.0, 0.0];
                 const data = {
                     'waypoint_set': {
                         'agent_id': agent_id,
                         'creator_id': creator_id,
                         'geopose': waypointGeopose,
-                        'color': [1.0, 1.0, 0.0],
+                        'color': color,
                         'timestamp': timestamp
                     }
                 };

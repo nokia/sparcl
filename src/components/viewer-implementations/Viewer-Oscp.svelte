@@ -25,6 +25,9 @@
     import {createEventDispatcher} from 'svelte';
     const dispatcher = createEventDispatcher();
 
+    const kMyAgentName = "nokia83_gabor"; // TODO: generate based on user uuid
+    const kMyWaypointTargetAgentId = "robot2"  // TODO: generate based on agent uuid
+
     /**
      * Initial setup.
      *
@@ -115,10 +118,10 @@
         const message_body = {
             "geopose": globalTargetPose,
             "active": true,
-            "sender": "nokia83_gabor", // TODO: generate based on user uuid
-            "timestamp": new Date().getTime(), // TODO: use the timestamp from the message,
-            "creator_id": "nokia83_gabor", // TODO: generate based on user uuid
-            "agent_id": "robot2" // TODO: generate based on agent uuid
+            "sender": kMyAgentName,
+            "timestamp": Date.now(),//new Date().getTime(), // TODO: use the timestamp from the message,
+            "creator_id": kMyAgentName,
+            "agent_id": kMyWaypointTargetAgentId
         }
         dispatcher('broadcast', {
             event: 'waypoint_set',
@@ -128,6 +131,7 @@
     }
 
     // TODO: if there is already one, do not recreate but just move it
+    // TODO: globalTargetPose can be factored out from this method
     function setWaypointObject(globalTargetPose, localTargetPose, active=true) {
         // remove any previous waypoint
         if (robotWaypointModel) {
@@ -148,8 +152,8 @@
         const scale = 0.1; const offsetY = 1; const offsetZ = 0;
         robotWaypointModel = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
         robotWaypointModel.scale.set(scale);
-        robotWaypointModel.position.y += offsetY * scale;
-        robotWaypointModel.position.z += offsetZ * scale;
+        //robotWaypointModel.position.y += offsetY * scale;
+        //robotWaypointModel.position.z += offsetZ * scale;
 
         $robotTargetWaypoint.geopose = globalTargetPose;
         $robotTargetWaypoint.floorpose = localTargetPose;
@@ -173,8 +177,8 @@
 
         if (get(recentLocalisation)?.geopose?.position == undefined) {
             // we need to localize at least once to be able to do anything
-            console.log('Network event received but we are not localized yet!');
-            console.log(events);
+            //console.log('Network event received but we are not localized yet!');
+            //console.log(events);
             return;
         }
 
@@ -182,7 +186,7 @@
             let data = events.agent_geopose_updated;
             const agent_id = data.agent_id;
             const timestamp = data.timestamp;
-            //const timestamp = new Date().getTime(); // TODO: use the timestamp from the message
+            const agent_geopose = data.geopose;
             // We create a new spatial content record just for placing this object
             let object_id = agent_id + '_' +  timestamp; // just a proposal
 
@@ -199,7 +203,7 @@
                 "type": "geopose_stream", //high-level OSCP type
                 "title": object_id, // datapoint ID = stream ID + timestamp
                 "refs": [],
-                "geopose": data.geopose,
+                "geopose": agent_geopose,
                 "object_description": object_description
             };
             let scr = {
@@ -214,6 +218,7 @@
 
             // if the robot is close to the target in global coordinates, make the target disappear
             if ($robotTargetWaypoint?.geopose?.position?.lat != undefined) {
+                /*
                 const dLat = Math.abs(data.geopose.position.lat - $robotTargetWaypoint.geopose.position.lat); // in latitude degrees
                 const dLon = Math.abs(data.geopose.position.lon - $robotTargetWaypoint.geopose.position.lon); // in longitude degrees
                 const dHeight = Math.abs(data.geopose.position.h - $robotTargetWaypoint.geopose.position.h); // in meters (the reticle height is very unreliable)
@@ -226,7 +231,19 @@
                 //console.log(planarDistance);
 
                 if (planarDistance < 0.25 || (dLat < 0.000002 && dLon < 0.000002 && dHeight < 2.0)) {
-                    console.log("WAYPOINT HIT!");
+                */
+                //////
+                const waypointLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose($robotTargetWaypoint.geopose);
+                let waypointPosition = waypointLocalPose.position;
+                waypointPosition[1] = 0.0; // Y UP set to zero
+                const agentLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(agent_geopose);
+                let agentPosition = agentLocalPose.position;
+                agentPosition[1] = 0.0; // Y UP set to zero
+                const planarDistance = waypointPosition.distance(agentPosition)
+                //console.log("planarDistance: " + planarDistance);
+                if (planarDistance < 0.25) {
+                ///////
+                    console.log("Wayoint hit by agent " + agent_id);
                     new Audio('media/audio/ding-40142.mp3').play();
                     parentInstance.getRenderer().remove(robotWaypointModel);
 
@@ -241,9 +258,19 @@
             console.log("Global waypoint event received:");
             const msg = events.waypoint_set;
             console.log(msg);
-            const globalTargetPose = msg.geopose;
-            const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
+
             const active = msg.active;
+            let globalTargetPose = msg.geopose;
+            let localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
+
+            // HACK HACK HACK if this was sent from the dtvis, then set its height over the ground
+
+            if (msg.creator_id == "1") {
+                console.log("This was sent from dtvis!");
+                //console.log(localTargetPose);
+                localTargetPose.position[1] = 0; // Y UP
+            }
+
             setWaypointObject(globalTargetPose, localTargetPose, active);
         }
 
