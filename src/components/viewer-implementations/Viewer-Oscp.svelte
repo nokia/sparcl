@@ -303,16 +303,20 @@
         }
      }
 
-    function shareCameraPose(position, quaternion) {
-        const timestamp = new Date().getTime();
-        const agent_id = "phone2";
+    function shareCameraPose(localPose) {
+        // Warning: conversion from the webxr transform representation to OGL representation
+        const position = [localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z];
+        const quaternion = [localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w];
+
+        const timestamp = Date.now();
+        const agent_id = kMyAgentName;
         const object_id = agent_id + '_' +  timestamp; // just a proposal
         const globalObjectPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(position, quaternion);
         const geoPose = {
             "position": {
                 "lat": globalObjectPose.position.lat,
                 "lon": globalObjectPose.position.lon,
-                "h": globalObjectPose.position.h
+                "h": globalObjectPose.position.h - 1.3 // HACK HACK HACK
             },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
@@ -344,16 +348,37 @@
             "type": "geopose_stream",
             "timestamp": timestamp
         }
-        const message_body = {
+        let message_body = {
             "scr": scr,
-            "sender": "nokia83_gabor", // TODO: generate based on some agent uuid
+            "sender": kMyAgentName,
             "timestamp": timestamp,
         }
+
+        // TODO: this is for general SCR with streaming geopose
         dispatcher('broadcast', {
-            event: 'agent_geopose_updated',
+            event: 'publish_camera_pose',
             value: message_body,
-            "routing_key": "/exchange/esoptron/geopose_update.nokia83_gabor" // TODO: generate based on some agent uuid
+            "routing_key": "/exchange/esoptron/geopose_update." + String(kMyAgentName)
         });
+
+       /*
+        // TODO: this is for Gabor's demo
+        message_body = {
+            'agent_id': agent_id, // TODO: generate based on some agent uuid
+            'avatar': {
+                'name': kMyAgentName,
+                'color': { 'r': 1.0, 'g': 152.0/255.0, 'b': 0.0 }
+            },
+            'geopose': geoPose,
+            'timestamp': timestamp
+        };
+
+        dispatcher('broadcast', {
+            event: 'publish_camera_pose',
+            value: message_body,
+            "routing_key": "/exchange/esoptron/geopose_update." + String(kMyAgentName)
+        });
+        */
     }
 
     /**
@@ -395,15 +420,15 @@
         if ($recentLocalisation.geopose?.position === undefined) {
             reticle.visible = false;
         }
-/*
+
         if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
             try {
-                shareCameraPose(floorPose.transform.position, floorPose.transform.orientation);
+                shareCameraPose(floorPose);
             } catch (error) {
                 // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
             }
         }
-*/
+
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
 

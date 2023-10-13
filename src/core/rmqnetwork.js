@@ -58,9 +58,13 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 const msg = JSON.parse(d.body);
                 //console.log(msg);
 
-                const timestamp = msg.timestamp || Date.now();
                 const agentId = msg.agent_id || "";
-                const agentGeopose = msg.geopose || new GeoPose();
+                if (agentId == "" || agentId == "nokia83_gabor") {
+                    return; // HACK. TODO: do this properly
+                }
+
+                const timestamp = msg.timestamp || Date.now();
+                const agentGeopose = msg.geopose;
                 const agentName = msg.avatar.name || "";
                 const agentColor = [msg.avatar.color.r, msg.avatar.color.g, msg.avatar.color.b] || [1.0, 1.0, 1.0];
 
