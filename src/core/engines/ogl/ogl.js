@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry} from 'ogl';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Polyline, Color} from 'ogl';
 import {createGltfProgram, createSimpleGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 import {createSimplePointCloudProgram, MyPLYLoader} from '@core/engines/ogl/oglPlyHelper';
 import {loadLogoTexture, createLogoProgram} from '@core/engines/ogl/oglLogoHelper';
@@ -110,6 +110,19 @@ export default class ogl {
         placeholder.setParent(scene);
 
         return placeholder;
+    }
+
+    addPolyline(points) {
+        const polyline = new Polyline(gl, {
+            points,
+            uniforms: {
+                uColor: { value: new Color('#000') },
+                uThickness: { value: 3 },
+            },
+        });
+        const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
+        mesh.setParent(scene);
+        return mesh;
     }
 
     /**

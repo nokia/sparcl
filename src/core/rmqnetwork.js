@@ -22,6 +22,7 @@ const rmqport = "8024"; // Secure WebSockets Web-STOMP (wss://)
 
 const rmq_topic_geopose_update = "/exchange/esoptron/geopose_update.#";
 const rmq_topic_waypoint = "/exchange/esoptron/waypoint";
+const rmq_topic_robot_path = "/exchange/esoptron/robot_path";
 const rmq_topic_chair_reservation = "/exchange/esoptron/chair_reservation";
 
 let throttleCounter1 = 0;
@@ -102,6 +103,26 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                         'agent_id': agent_id,
                         'creator_id': creator_id,
                         'geopose': waypointGeopose,
+                        'color': color,
+                        'timestamp': timestamp
+                    }
+                };
+                updateFunction(data);
+            });
+
+            console.log("Subscribing to topic " + rmq_topic_robot_path)
+            rmqClient.subscribe(rmq_topic_robot_path, function (d) {
+                const msg = JSON.parse(d.body);
+                const waypointGeoposes = msg.geoposes || null;
+                const agent_id = msg.agent_id || "unknown"; // target agent
+                const creator_id = msg.creator_id || "unknown";
+                const timestamp = msg.timestamp || 0;
+                const color = msg.color ||  [1.0, 1.0, 0.0];
+                const data = {
+                    'robot_path': {
+                        'agent_id': agent_id,
+                        'creator_id': creator_id,
+                        'geoposes': waypointGeoposes,
                         'color': color,
                         'timestamp': timestamp
                     }

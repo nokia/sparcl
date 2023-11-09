@@ -9,6 +9,7 @@
 <script>
     import Parent from '@components/Viewer';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
+    import { Vec3 } from 'ogl';
     import {recentLocalisation} from '@src/stateStore';
     import { get } from 'svelte/store';
 
@@ -17,6 +18,8 @@
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource = null;
     let robotWaypointModel = null;
+    let robotWaypoints = null;
+    let robotPolyLine = null;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
 
@@ -136,7 +139,6 @@
         // remove any previous waypoint
         if (robotWaypointModel) {
             parentInstance.getRenderer().remove(robotWaypointModel);
-
         }
         if (active == false) {
            return; // nothing more to do
@@ -162,13 +164,27 @@
         new Audio('media/audio/ding-36029.mp3').play();
     }
 
+    function setRobotPathWaypointObject(localTargetPose) {
+        // Create a waypoint object
+        const shape = PRIMITIVES.cylinder;
+        let options = {};
+        options.radiusTop = 0.3;
+        options.radiusBottom = 0.3;
+        options.height = 2;
+        const fragmentShader = colorfulFragment;
+        const scale = 0.1;
+        robotWaypointModel = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
+        robotWaypointModel.scale.set(scale);
+        return robotWaypointModel;
+    }
+
     /**
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
     export function onNetworkEvent(events) {
         // Simply print any other events and return
-        if (!('agent_geopose_updated' in events) && !('waypoint_set' in events) && !('reservation_status_changed' in events)) {
+        if (!('agent_geopose_updated' in events) && !('waypoint_set' in events) && !('reservation_status_changed' in events) && !('robot_path' in events)) {
             console.log('Viewer-Oscp: Unknown event received:');
             console.log(events);
             // pass on to parent
@@ -272,6 +288,27 @@
             }
 
             setWaypointObject(globalTargetPose, localTargetPose, active);
+        }
+
+        if ('robot_path' in events) {
+            if (robotPolyLine) {
+                parentInstance.getRenderer().remove(robotPolyLine);
+            }
+            robotWaypoints?.forEach((robotWaypoint) => {
+                parentInstance.getRenderer().remove(robotWaypoint);
+            })
+            networkEvent += 1;
+            const msg = events.robot_path;
+            console.log(msg);
+            robotWaypoints = msg.geoposes.map((geopose) => {
+                const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
+                return setRobotPathWaypointObject(localTargetPose);
+            })
+            const robotPolyLinePoints = msg.geoposes.map((geopose) => {
+                const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
+                return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
+            })
+            robotPolyLine = parentInstance.getRenderer().addPolyline(robotPolyLinePoints);
         }
 
         if ('reservation_status_changed' in events) {
