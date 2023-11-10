@@ -191,7 +191,8 @@ export function distToLineSegment(point, lineStart, lineEnd, projection = undefi
     }
     let t = sum(coordsFiltered.map((coord) => (point[coord] - lineStart[coord]) * (lineEnd[coord] - lineStart[coord]))) / lineLengthSquared;
     t = Math.max(0, Math.min(1, t));
-    return Math.sqrt(
-        distSquared(point, { x: lineStart.x + t * (lineEnd.x - lineStart.x), y: lineStart.y + t * (lineEnd.y - lineStart.y), z: lineStart.z + t * (lineEnd.z - lineStart.z) }, coordsFiltered)
-    );
+    const closestPointOnSegment = coordsFiltered.reduce((coord) => {
+        return { ...acc, [coord]: lineStart[coord] + t * (lineEnd[coord] - lineStart[coord]) };
+    }, {});
+    return Math.sqrt(distSquared(point, closestPointOnSegment, coordsFiltered));
 }
