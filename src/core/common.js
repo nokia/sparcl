@@ -174,15 +174,24 @@ export function randomInteger(min, max) {
 function square(x) {
     return x * x;
 }
-function distSquared(v, w) {
-    return square(v.x - w.x) + square(v.y - w.y) + square(v.z - w.z);
+
+function sum(arr) {
+    return arr.reduce((accumulator, value) => accumulator + value, 0);
 }
-export function distToLineSegment(point, lineStart, lineEnd) {
-    const lineLengthSquared = distSquared(lineStart, lineEnd);
+
+function distSquared(v, w, coords) {
+    return sum(coords.map((coord) => square(v[coord] - w[coord])));
+}
+export function distToLineSegment(point, lineStart, lineEnd, projection = undefined) {
+    const coordinates = ['x', 'y', 'z'];
+    const coordsFiltered = coordinates.filter((coord) => coord !== projection);
+    const lineLengthSquared = distSquared(lineStart, lineEnd, coordsFiltered);
     if (lineLengthSquared == 0) {
-        return distSquared(point, lineStart);
+        return distSquared(point, lineStart, coordsFiltered);
     }
-    let t = ((point.x - lineStart.x) * (lineEnd.x - lineStart.x) + (point.y - lineStart.y) * (lineEnd.y - lineStart.y) + (point.z - lineStart.z) * (lineEnd.z - lineStart.z)) / lineLengthSquared;
+    let t = sum(coordsFiltered.map((coord) => (point[coord] - lineStart[coord]) * (lineEnd[coord] - lineStart[coord]))) / lineLengthSquared;
     t = Math.max(0, Math.min(1, t));
-    return Math.sqrt(distSquared(point, { x: lineStart.x + t * (lineEnd.x - lineStart.x), y: lineStart.y + t * (lineEnd.y - lineStart.y), z: lineStart.z + t * (lineEnd.z - lineStart.z) }));
+    return Math.sqrt(
+        distSquared(point, { x: lineStart.x + t * (lineEnd.x - lineStart.x), y: lineStart.y + t * (lineEnd.y - lineStart.y), z: lineStart.z + t * (lineEnd.z - lineStart.z) }, coordsFiltered)
+    );
 }
