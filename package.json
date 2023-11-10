@@ -4,7 +4,7 @@
   "description": "Generic OSCP client prototype with WebXR",
   "main": "src/index.js",
   "scripts": {
-    "start": "snowpack dev",
+    "start": "snowpack dev --polyfill-node",
     "build": "snowpack build",
     "test": "npx mocha --reporter spec 'test/**/*.js'"
   },
