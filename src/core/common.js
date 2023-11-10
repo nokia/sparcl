@@ -183,6 +183,7 @@ function distSquared(v, w, coords) {
     return sum(coords.map((coord) => square(v[coord] - w[coord])));
 }
 
+// https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = undefined }) {
     const coordinates = ['x', 'y', 'z'];
     const coordsFiltered = coordinates.filter((coord) => coord !== projectionAxis);

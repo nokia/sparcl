@@ -86,7 +86,6 @@
         for (const view of floorPose.views) {
             for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
                 const distance = distToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' })
-                console.log('distance', distance)
                 if (distance <= threshold) {
                     return true
                 }
