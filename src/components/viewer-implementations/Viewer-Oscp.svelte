@@ -10,6 +10,7 @@
     import Parent from '@components/Viewer';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
     import { Vec3 } from 'ogl';
+    import { distToLineSegment } from '@core/common';
     import {recentLocalisation} from '@src/stateStore';
     import { get } from 'svelte/store';
 
@@ -19,9 +20,12 @@
     let hitTestSource = null;
     let robotWaypointModel = null;
     let robotWaypoints = null;
+    let showAlert = false;
     let robotPolyLine = null;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
+    let networkEvent = 0;
+    let robotPolyLinePoints = [];
 
     let parentInstance;
 
@@ -75,6 +79,20 @@
             requiredXrFeatures,
             optionalXrFeatures
         );
+    }
+
+    function isIntersectingWithRobotPath (floorPose) {
+        const threshold = 1;
+        for (const view of floorPose.views) {
+            for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
+                const distance = distToLineSegment(view.transform.position, robotPolyLinePoints[i], robotPolyLinePoints[i + 1])
+                console.log('distance', distance)
+                if (distance <= threshold) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
 
@@ -304,7 +322,7 @@
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return setRobotPathWaypointObject(localTargetPose);
             })
-            const robotPolyLinePoints = msg.geoposes.map((geopose) => {
+            robotPolyLinePoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
             })
@@ -465,6 +483,11 @@
                 // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
             }
         }
+        if (isIntersectingWithRobotPath(floorPose)) {
+            showAlert = true;
+        } else {
+            showAlert = false;
+        }
 
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
@@ -507,12 +530,18 @@
         let:receivedContentTitles
         >
         <ArCloudOverlay
+            networkEvent={networkEvent}
+            showAlert={showAlert}
             hasPose="{firstPoseReceived}"
             isLocalizing="{isLocalizing}"
             isLocalized="{isLocalized}"
             receivedContentTitles="{receivedContentTitles}"
             on:startLocalisation={() => parentInstance.startLocalisation()}
-            on:relocalize={() => parentInstance.relocalize()}
+            on:relocalize={() => {
+                robotPolyLine = null;
+                robotPolyLinePoints = [];
+                parentInstance.relocalize();
+            }}
         />
     </svelte:fragment>
 </Parent>

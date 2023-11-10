@@ -9,6 +9,8 @@
     import { isLocalizingMessage, isLocalizedMessage, localizeMessage, localizeLabel, movePhoneMessage, resetLabel } from '@src/contentStore';
 
     export let hasPose = false;
+    export let networkEvent
+    export let showAlert
     export let isLocalizing = false;
     export let isLocalized = false;
     export let receivedContentTitles = [];
@@ -40,6 +42,8 @@
 </style>
 
 
+<p>networkEvent {networkEvent}</p>
+<p>showAlert {showAlert}</p>
 {#if !hasPose}
     <p>{$movePhoneMessage}</p>
 {:else if isLocalizing}
