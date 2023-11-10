@@ -182,9 +182,10 @@ function sum(arr) {
 function distSquared(v, w, coords) {
     return sum(coords.map((coord) => square(v[coord] - w[coord])));
 }
-export function distToLineSegment(point, lineStart, lineEnd, projection = undefined) {
+
+export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = undefined }) {
     const coordinates = ['x', 'y', 'z'];
-    const coordsFiltered = coordinates.filter((coord) => coord !== projection);
+    const coordsFiltered = coordinates.filter((coord) => coord !== projectionAxis);
     const lineLengthSquared = distSquared(lineStart, lineEnd, coordsFiltered);
     if (lineLengthSquared == 0) {
         return distSquared(point, lineStart, coordsFiltered);
