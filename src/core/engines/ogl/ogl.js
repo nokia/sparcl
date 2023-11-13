@@ -112,11 +112,11 @@ export default class ogl {
         return placeholder;
     }
 
-    addPolyline(points) {
+    addPolyline(points, hexColor) {
         const polyline = new Polyline(gl, {
             points,
             uniforms: {
-                uColor: { value: new Color('#000') },
+                uColor: { value: new Color(hexColor) },
                 uThickness: { value: 3 },
             },
         });

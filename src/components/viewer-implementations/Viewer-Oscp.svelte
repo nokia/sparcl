@@ -22,6 +22,7 @@
     let showAlert = false;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
+    let agentIdToAgentHexColor = {};
     let networkEvent = 0;
     let robotPolyLines = {};
 
@@ -218,6 +219,7 @@
         if ('agent_geopose_updated' in events) {
             let data = events.agent_geopose_updated;
             const agent_id = data.agent_id;
+            agentIdToAgentHexColor = { ...agentIdToAgentHexColor, [agent_id]: rgbToHex(data.color) };
             const timestamp = data.timestamp;
             const agent_geopose = data.geopose;
             // We create a new spatial content record just for placing this object
@@ -324,7 +326,8 @@
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
             })
-            const robotPolyLine = parentInstance.getRenderer().addPolyline(robotPolyLinePoints);
+            const hexColor = agentIdToAgentHexColor[msg.agent_id];
+            const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
             robotPolyLines = { ...robotPolyLines, [msg.agent_id]: { robotPolyLine, robotPolyLinePoints, robotWaypoints } }
         }
 

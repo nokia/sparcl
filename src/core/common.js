@@ -183,6 +183,18 @@ function distSquared(v, w, coords) {
     return sum(coords.map((coord) => square(v[coord] - w[coord])));
 }
 
+function componentToHex(c) {
+    var hex = c.toString(16);
+    return hex.length == 1 ? '0' + hex : hex;
+}
+
+export function rgbToHex(rgbArray) {
+    if (rgbArray.length > 2) {
+        return '#' + componentToHex(rgbArray[0]) + componentToHex(rgbArray[1]) + componentToHex(rgbArray[2]);
+    }
+    return '#000000';
+}
+
 // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = undefined }) {
     const coordinates = ['x', 'y', 'z'];
