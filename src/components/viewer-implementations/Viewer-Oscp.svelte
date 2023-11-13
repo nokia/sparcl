@@ -19,13 +19,11 @@
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource = null;
     let robotWaypointModel = null;
-    let robotWaypoints = null;
     let showAlert = false;
-    let robotPolyLine = null;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
     let networkEvent = 0;
-    let robotPolyLinePoints = [];
+    let robotPolyLines = {};
 
     let parentInstance;
 
@@ -84,10 +82,12 @@
     function isIntersectingWithRobotPath (floorPose) {
         const threshold = 1;
         for (const view of floorPose.views) {
-            for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
-                const distance = distToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' })
-                if (distance <= threshold) {
-                    return true
+            for (const { robotPolyLinePoints } of Object.values(robotPolyLines)) {
+                for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
+                    const distance = distToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' })
+                    if (distance <= threshold) {
+                        return true
+                    }
                 }
             }
         }
@@ -308,24 +308,24 @@
         }
 
         if ('robot_path' in events) {
-            if (robotPolyLine) {
-                parentInstance.getRenderer().remove(robotPolyLine);
-            }
-            robotWaypoints?.forEach((robotWaypoint) => {
-                parentInstance.getRenderer().remove(robotWaypoint);
-            })
-            networkEvent += 1;
             const msg = events.robot_path;
-            console.log(msg);
-            robotWaypoints = msg.geoposes.map((geopose) => {
+            if (robotPolyLines[msg.agent_id]) {
+                parentInstance.getRenderer().remove(robotPolyLines[msg.agent_id].robotPolyLine);
+                robotPolyLines[msg.agent_id].robotWaypoints.forEach((robotWaypoint) => {
+                    parentInstance.getRenderer().remove(robotWaypoint);
+                })
+            }
+            networkEvent += 1;
+            const robotWaypoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return setRobotPathWaypointObject(localTargetPose);
             })
-            robotPolyLinePoints = msg.geoposes.map((geopose) => {
+            const robotPolyLinePoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
             })
-            robotPolyLine = parentInstance.getRenderer().addPolyline(robotPolyLinePoints);
+            const robotPolyLine = parentInstance.getRenderer().addPolyline(robotPolyLinePoints);
+            robotPolyLines = { ...robotPolyLines, [msg.agent_id]: { robotPolyLine, robotPolyLinePoints, robotWaypoints } }
         }
 
         if ('reservation_status_changed' in events) {
@@ -537,8 +537,7 @@
             receivedContentTitles="{receivedContentTitles}"
             on:startLocalisation={() => parentInstance.startLocalisation()}
             on:relocalize={() => {
-                robotPolyLine = null;
-                robotPolyLinePoints = [];
+                robotPolyLines = {};
                 parentInstance.relocalize();
             }}
         />
