@@ -13,6 +13,7 @@
     import { distToLineSegment } from '@core/common';
     import {recentLocalisation} from '@src/stateStore';
     import { get } from 'svelte/store';
+    import throttle from 'lodash/throttle';
 
     // just for drawing an agent
     import {PRIMITIVES} from "@core/engines/ogl/modelTemplates";
@@ -438,6 +439,14 @@
         */
     }
 
+    const throttledShowAlert = throttle((floorPose) => {
+        if (isIntersectingWithRobotPath(floorPose)) {
+            showAlert = true;
+        } else {
+            showAlert = false;
+        }
+    }, 300);
+
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -485,11 +494,7 @@
                 // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
             }
         }
-        if (isIntersectingWithRobotPath(floorPose)) {
-            showAlert = true;
-        } else {
-            showAlert = false;
-        }
+        throttledShowAlert(floorPose)
 
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
