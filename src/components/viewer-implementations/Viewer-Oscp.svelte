@@ -12,6 +12,7 @@
     import { Vec3 } from 'ogl';
     import { distToLineSegment } from '@core/common';
     import {recentLocalisation} from '@src/stateStore';
+    import { isUserOnRobotPath } from '@src/stateStore';
     import { get } from 'svelte/store';
     import throttle from 'lodash/throttle';
 
@@ -20,7 +21,6 @@
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource = null;
     let robotWaypointModel = null;
-    let showAlert = false;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
     let agentIdToAgentHexColor = {};
@@ -441,9 +441,9 @@
 
     const throttledShowAlert = throttle((floorPose) => {
         if (isIntersectingWithRobotPath(floorPose)) {
-            showAlert = true;
+            $isUserOnRobotPath = true;
         } else {
-            showAlert = false;
+            $isUserOnRobotPath = false;
         }
     }, 300);
 
@@ -538,7 +538,6 @@
         >
         <ArCloudOverlay
             networkEvent={networkEvent}
-            showAlert={showAlert}
             hasPose="{firstPoseReceived}"
             isLocalizing="{isLocalizing}"
             isLocalized="{isLocalized}"

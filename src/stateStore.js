@@ -378,3 +378,38 @@ export const robotTargetWaypoint = writable({
     geopose: {},
     floorpose: {},
 });
+
+/**
+ * Used to store whether a robot's planned path intersects with the user
+ *
+ * @type {Writable<boolean>}
+ */
+export const isUserOnRobotPath = writable(false);
+
+const updateInterval = 200;
+
+/**
+ * Used to store an alternating value that can be used as a blinking mechanism to warn the user when it's position intersects with a robot's planned path.
+ *
+ * @type {Writable<string>}
+ */
+export const userOnRobotPathBlinkingAlert = derived(isUserOnRobotPath, ($isUserOnRobotPath, set, update) => {
+    if ($isUserOnRobotPath) {
+        let interval = setInterval(() => {
+            // update function does not exist in svelte 3, only in svelte 4. This is a workaround.
+            if (Date.now() % (updateInterval * 2) < updateInterval) {
+                set('state1');
+            } else {
+                set('state2');
+            }
+            // update((currentValue) => (currentValue === 'red' ? 'black' : 'red'));
+        }, updateInterval);
+        // Cleanup interval when the callback is run again, (when the original isUserOnRobotPath store changes), or when the last subscriber unsubscribes
+        return () => {
+            clearInterval(interval);
+        };
+    } else {
+        // Reset the derived value to undefined when the condition is false
+        set(undefined);
+    }
+});

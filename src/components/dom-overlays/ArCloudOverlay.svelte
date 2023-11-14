@@ -7,16 +7,20 @@
 <script>
     import { createEventDispatcher } from 'svelte';
     import { isLocalizingMessage, isLocalizedMessage, localizeMessage, localizeLabel, movePhoneMessage, resetLabel } from '@src/contentStore';
+    import { isUserOnRobotPath, userOnRobotPathBlinkingAlert } from '@src/stateStore';
 
     export let hasPose = false;
     export let networkEvent
-    export let showAlert
     export let isLocalizing = false;
     export let isLocalized = false;
     export let receivedContentTitles = [];
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+    const blinkingAlertStates = {
+        state1: 'color: red',
+        state2: 'color: black',
+    }
 </script>
 
 
@@ -43,7 +47,9 @@
 
 
 <p>networkEvent {networkEvent}</p>
-<p>showAlert {showAlert}</p>
+{#if $isUserOnRobotPath}
+    <p style={blinkingAlertStates[$userOnRobotPathBlinkingAlert] ?? ''}>DANGER! You are intersecting with a robot's path!</p>
+{/if}
 {#if !hasPose}
     <p>{$movePhoneMessage}</p>
 {:else if isLocalizing}

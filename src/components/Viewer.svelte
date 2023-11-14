@@ -12,6 +12,7 @@
 
     import {v4 as uuidv4} from 'uuid';
 
+    import { userOnRobotPathBlinkingAlert } from '@src/stateStore';
     import {sendRequest, validateRequest} from '@oarc/gpp-access';
     import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
@@ -642,6 +643,33 @@
         console.log(events);
     }
 
+    const blinkingAlertStates = {
+        state1: 'border: solid 5px red',
+        state2: 'border: solid 5px black',
+    }
+    // let blinkingAlert;
+    // let interval;
+    // function stopChanging() {
+    //     clearInterval(interval);
+    //     blinkingAlert = undefined;
+    // }
+
+    // onDestroy(() => {
+    //     stopChanging();
+    // })
+
+    // function startChanging() {
+    //     interval = setInterval(() => {
+    //         blinkingAlert = blinkingAlert === 'state2' ? 'state1' : 'state2';
+    //     }, 1000);
+    // }
+
+    // $: if ($isUserOnRobotPath) {
+    //     startChanging();
+    // } else {
+    //     stopChanging();
+    // }
+
 </script>
 
 
@@ -711,7 +739,7 @@
 
     <!--  Space for UI elements -->
     {#if $context.showFooter || true}  <!-- always show footer now for demo purposes -->
-        <footer>
+        <footer style={blinkingAlertStates[$userOnRobotPathBlinkingAlert] ?? ''}>
             {#if unableToStartSession}
                 <h4>Couldn't start AR</h4>
                 <p>
