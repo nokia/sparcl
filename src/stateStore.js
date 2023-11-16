@@ -10,6 +10,7 @@
 import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Determines the availability of AR functions on the current device.
@@ -412,4 +413,47 @@ export const userOnRobotPathBlinkingAlert = derived(isUserOnRobotPath, ($isUserO
         // Reset the derived value to undefined when the condition is false
         set(undefined);
     }
+});
+
+/**
+ * Used to store a random uuid that corresponds to the current user's agent name
+ *
+ * @type {Readable<string>}
+ */
+const storedMyAgentId = localStorage.getItem('myAgentId');
+export const myAgentId = readable(storedMyAgentId, (set) => {
+    if (!storedMyAgentId) {
+        const newAgentId = uuidv4();
+        localStorage.setItem('myAgentId', newAgentId);
+        set(newAgentId);
+    }
+    return () => {};
+});
+
+/**
+ * Used to store the user's agent name
+ *
+ * @type {Writable<string>}
+ */
+const storedMyAgentName = localStorage.getItem('myAgentName');
+export const myAgentName = writable(storedMyAgentName);
+myAgentName.subscribe((value) => {
+    if (value) {
+        localStorage.setItem('myAgentName', value);
+    }
+});
+
+const getRandomRgbValue = () => {
+    return Math.floor(Math.random() * 256);
+};
+
+/**
+ * Used to store a the users preferred color.
+ *
+ * @type {Writable<{r: number, g: number, b: number, a: number}>}
+ */
+const storedMyAgentColor = localStorage.getItem('myAgentColor') ? JSON.parse(localStorage.getItem('myAgentColor')) : { r: getRandomRgbValue(), g: getRandomRgbValue(), b: getRandomRgbValue(), a: 1 };
+export const myAgentColor = writable(storedMyAgentColor);
+myAgentColor.subscribe((value) => {
+    localStorage.setItem('myAgentColor', JSON.stringify(value));
 });

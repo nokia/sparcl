@@ -11,8 +11,7 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
     import { Vec3 } from 'ogl';
     import { distToLineSegment } from '@core/common';
-    import {recentLocalisation} from '@src/stateStore';
-    import { isUserOnRobotPath } from '@src/stateStore';
+    import { isUserOnRobotPath, myAgentName, myAgentId, recentLocalisation, myAgentColor } from '@src/stateStore';
     import { get } from 'svelte/store';
     import throttle from 'lodash/throttle';
 
@@ -31,9 +30,6 @@
 
     import {createEventDispatcher} from 'svelte';
     const dispatcher = createEventDispatcher();
-
-    const kMyAgentName = "nokia83_gabor"; // TODO: generate based on user uuid
-    const kMyWaypointTargetAgentId = "robot2"  // TODO: generate based on agent uuid
 
     /**
      * Initial setup.
@@ -140,10 +136,10 @@
         const message_body = {
             "geopose": globalTargetPose,
             "active": true,
-            "sender": kMyAgentName,
+            "sender": $myAgentName,
             "timestamp": Date.now(),//new Date().getTime(), // TODO: use the timestamp from the message,
-            "creator_id": kMyAgentName,
-            "agent_id": kMyWaypointTargetAgentId
+            "creator_id": $myAgentName,
+            "agent_id": $myAgentId
         }
         dispatcher('broadcast', {
             event: 'waypoint_set',
@@ -367,7 +363,7 @@
         const quaternion = [localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w];
 
         const timestamp = Date.now();
-        const agent_id = kMyAgentName;
+        const agent_id = $myAgentId;
         const object_id = agent_id + '_' +  timestamp; // just a proposal
         const globalObjectPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(position, quaternion);
         const geoPose = {
@@ -385,7 +381,7 @@
         }
         const object_description = {
             'version': 2,
-            'color': [1.0, 1.0, 0.0, 1.0],
+            'color': [$myAgentColor.r, $myAgentColor.g, $myAgentColor.b, $myAgentColor.a],
             'shape': PRIMITIVES.sphere,
             'scale': [0.05, 0.05, 0.05],
             'transparent': false,
@@ -408,7 +404,7 @@
         }
         let message_body = {
             "scr": scr,
-            "sender": kMyAgentName,
+            "sender": $myAgentName,
             "timestamp": timestamp,
         }
 
@@ -416,7 +412,7 @@
         dispatcher('broadcast', {
             event: 'publish_camera_pose',
             value: message_body,
-            "routing_key": "/exchange/esoptron/geopose_update." + String(kMyAgentName)
+            "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
         });
 
        /*
@@ -424,7 +420,7 @@
         message_body = {
             'agent_id': agent_id, // TODO: generate based on some agent uuid
             'avatar': {
-                'name': kMyAgentName,
+                'name': $myAgentName,
                 'color': { 'r': 1.0, 'g': 152.0/255.0, 'b': 0.0 }
             },
             'geopose': geoPose,
@@ -434,7 +430,7 @@
         dispatcher('broadcast', {
             event: 'publish_camera_pose',
             value: message_body,
-            "routing_key": "/exchange/esoptron/geopose_update." + String(kMyAgentName)
+            "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
         });
         */
     }

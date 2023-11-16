@@ -8,6 +8,7 @@
     Temporary until better UX is found for the settings.
 -->
 <script>
+	import ColorPicker from 'svelte-awesome-color-picker';
     import { createEventDispatcher } from 'svelte';
 
     import { supportedCountries} from '@oarc/ssd-access';
@@ -17,7 +18,7 @@
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
         allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
         creatorModeSettings, experimentModeSettings,
-        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage
+        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, myAgentColor, myAgentName
     } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -412,6 +413,15 @@
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
         <label for="allowP2p">Connect to p2p network</label>
     </div>
+    <dl>
+        <dt>Choose your name</dt>
+        <dd class="list"><input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} /></dd>
+    </dl>
+    <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
+    <dl>
+        <dt>Recent GeoPose</dt>
+        <dd><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
+    </dl>
 
     <dl>
         <dt><label for="p2pserver">P2P Service</label></dt>
