@@ -380,6 +380,8 @@
                 "w": globalObjectPose.quaternion.w
             }
         }
+        /*
+        // BEGIN Sparcl multiplayer demo
         const object_description = {
             'version': 2,
             'color': [$myAgentColor.r, $myAgentColor.g, $myAgentColor.b, $myAgentColor.a],
@@ -415,9 +417,10 @@
             value: message_body,
             "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
         });
+        // END Sparcl multiplayer demo
+        */
 
-       /*
-        // TODO: this is for Gabor's demo
+        // BEGIN dtvis demo
         message_body = {
             'agent_id': agent_id,
             'avatar': {
@@ -433,7 +436,7 @@
             value: message_body,
             "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
         });
-        */
+        // END dtvis demo
     }
 
     const throttledShowAlert = throttle((floorPose) => {
