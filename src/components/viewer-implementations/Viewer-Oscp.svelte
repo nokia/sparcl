@@ -11,7 +11,7 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
     import { Vec3 } from 'ogl';
     import { distToLineSegment } from '@core/common';
-    import { isUserOnRobotPath, myAgentName, myAgentId, recentLocalisation, myAgentColor } from '@src/stateStore';
+    import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '@src/stateStore';
     import { get } from 'svelte/store';
     import throttle from 'lodash/throttle';
 
@@ -25,6 +25,7 @@
     let agentIdToAgentHexColor = {};
     let networkEvent = 0;
     let robotPolyLines = {};
+    const kMyWaypointTargetAgentId = "robot2"  // TODO: select from available robot agent_ids (which robot we want to control)
 
     let parentInstance;
 
@@ -136,10 +137,10 @@
         const message_body = {
             "geopose": globalTargetPose,
             "active": true,
-            "sender": $myAgentName,
+            "sender": $myAgentId, // can the sender be different from the creator of the command? in some cases maybe yes.
             "timestamp": Date.now(),//new Date().getTime(), // TODO: use the timestamp from the message,
-            "creator_id": $myAgentName,
-            "agent_id": $myAgentId
+            "creator_id": $myAgentId,
+            "agent_id": kMyWaypointTargetAgentId // we send the command to this robot
         }
         dispatcher('broadcast', {
             event: 'waypoint_set',
@@ -404,7 +405,7 @@
         }
         let message_body = {
             "scr": scr,
-            "sender": $myAgentName,
+            "sender": agent_id,
             "timestamp": timestamp,
         }
 
@@ -418,10 +419,10 @@
        /*
         // TODO: this is for Gabor's demo
         message_body = {
-            'agent_id': agent_id, // TODO: generate based on some agent uuid
+            'agent_id': agent_id,
             'avatar': {
                 'name': $myAgentName,
-                'color': { 'r': 1.0, 'g': 152.0/255.0, 'b': 0.0 }
+                'color': { 'r': $myAgentColor.r, 'g': $myAgentColor.g, 'b': $myAgentColor.b }
             },
             'geopose': geoPose,
             'timestamp': timestamp
