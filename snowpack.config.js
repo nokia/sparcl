@@ -23,6 +23,7 @@ module.exports = {
     bundle: true,
   },
   packageOptions: {
+    polyfillNode: true,
     // source: "remote"
   },
   devOptions: {
