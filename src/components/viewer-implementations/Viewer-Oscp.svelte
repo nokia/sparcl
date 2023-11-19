@@ -425,7 +425,7 @@
             'agent_id': agent_id,
             'avatar': {
                 'name': $myAgentName,
-                'color': { 'r': $myAgentColor.r, 'g': $myAgentColor.g, 'b': $myAgentColor.b }
+                'color': { 'r': $myAgentColor.r, 'g': $myAgentColor.g, 'b': $myAgentColor.b, 'a': $myAgentColor.a }
             },
             'geopose': geoPose,
             'timestamp': timestamp
