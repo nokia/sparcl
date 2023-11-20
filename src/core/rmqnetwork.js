@@ -1,5 +1,6 @@
 import { myAgentName } from '@src/stateStore';
 import { get } from 'svelte/store';
+import throttle from 'lodash/throttle';
 // TODO: remove these from the git history
 /*
 const config = require('./cfg/config.json');
@@ -27,13 +28,17 @@ const rmq_topic_waypoint = '/exchange/esoptron/waypoint';
 const rmq_topic_robot_path = '/exchange/esoptron/robot_path';
 const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
 
-let throttleCounter1 = 0;
-
 let stomp = undefined;
 let rmqClient = null;
 let updateFunction = undefined;
+
 export function connectWithReceiveCallback(onReceiveCallback) {
     updateFunction = onReceiveCallback;
+    const throttledUpdateFunction = throttle((data) => {
+        if (updateFunction) {
+            updateFunction(data);
+        }
+    }, 350);
 
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
@@ -62,31 +67,24 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 //console.log(msg);
 
                 const agentId = msg.agent_id || '';
-                if (agentId == '' || agentId == get(myAgentName)) {
-                    // HACK myAgentName should be eventually myAgentId
-                    return;
-                }
+                // if (agentId == '' || agentId == get(myAgentName)) {
+                //     // HACK myAgentName should be eventually myAgentId
+                //     return;
+                // }
 
                 const timestamp = msg.timestamp || Date.now();
                 const agentGeopose = msg.geopose;
                 const agentName = msg.avatar.name || '';
-                throttleCounter1 = throttleCounter1 + 1; // TODO: use lodash throttle instead of this custom solution
-                if (throttleCounter1 > 10) {
-                    // TODO: what is a sensible number here?
-                    throttleCounter1 = 0;
-                    if (updateFunction) {
-                        const data = {
-                            agent_geopose_updated: {
-                                agent_id: agentId,
-                                agent_name: agentName,
-                                geopose: agentGeopose,
-                                color: msg.avatar.color,
-                                timestamp: timestamp,
-                            },
-                        };
-                        updateFunction(data);
-                    }
-                }
+                const data = {
+                    agent_geopose_updated: {
+                        agent_id: agentId,
+                        agent_name: agentName,
+                        geopose: agentGeopose,
+                        color: msg.avatar.color,
+                        timestamp: timestamp,
+                    },
+                };
+                throttledUpdateFunction(data);
             });
 
             console.log('Subscribing to topic ' + rmq_topic_waypoint);
