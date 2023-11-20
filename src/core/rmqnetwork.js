@@ -1,3 +1,5 @@
+import { myAgentName } from '@src/stateStore';
+import { get } from 'svelte/store';
 // TODO: remove these from the git history
 /*
 const config = require('./cfg/config.json');
@@ -6,8 +8,8 @@ const rmqpassword = config.password;
 const hostname = config.hostname;
 const rmqport = config.rmqport;
 */
-const rmquser = "rmquser";
-const rmqpassword = "rmqpassword";
+const rmquser = 'rmquser';
+const rmqpassword = 'rmqpassword';
 
 // localhost
 //const hostname = "127.0.0.1";
@@ -17,13 +19,13 @@ const rmqpassword = "rmqpassword";
 //const rmqport = 15674; // WebSockets Web-STOMP (ws://)
 //const rmqport = 15673; // Secure WebSockets Web-STOMP (wss://)
 // office server
-const hostname = "nloc.duckdns.org";
-const rmqport = "8024"; // Secure WebSockets Web-STOMP (wss://)
+const hostname = 'nloc.duckdns.org';
+const rmqport = '8024'; // Secure WebSockets Web-STOMP (wss://)
 
-const rmq_topic_geopose_update = "/exchange/esoptron/geopose_update.#";
-const rmq_topic_waypoint = "/exchange/esoptron/waypoint";
-const rmq_topic_robot_path = "/exchange/esoptron/robot_path";
-const rmq_topic_chair_reservation = "/exchange/esoptron/chair_reservation";
+const rmq_topic_geopose_update = '/exchange/esoptron/geopose_update.#';
+const rmq_topic_waypoint = '/exchange/esoptron/waypoint';
+const rmq_topic_robot_path = '/exchange/esoptron/robot_path';
+const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
 
 let throttleCounter1 = 0;
 
@@ -35,12 +37,12 @@ export function connectWithReceiveCallback(onReceiveCallback) {
 
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
-    import('stompjs').then(stompModule => {
+    import('stompjs').then((stompModule) => {
         stomp = stompModule.default;
         const rmq_url = 'wss://' + hostname + ':' + rmqport + '/ws';
-        console.log("Connecting to RMQ " + rmq_url);
+        console.log('Connecting to RMQ ' + rmq_url);
         rmqClient = stomp.client(rmq_url);
-        rmqClient.debug = function(str) {
+        rmqClient.debug = function (str) {
             // for debugging, we can print all received messages to the console (or even to a separate HTML view)
             //console.log(str + "\n");
         };
@@ -54,95 +56,93 @@ export function connectWithReceiveCallback(onReceiveCallback) {
             // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
             // 3. registers a subscription against the queue, for the current STOMP session.
 
-            console.log("Subscribing to topic " + rmq_topic_geopose_update)
+            console.log('Subscribing to topic ' + rmq_topic_geopose_update);
             rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
                 const msg = JSON.parse(d.body);
                 //console.log(msg);
 
-                const agentId = msg.agent_id || "";
-                if (agentId == "" || agentId == "nokia83_gabor") {
+                const agentId = msg.agent_id || '';
+                if (agentId == '' || agentId == get(myAgentName)) {
                     return; // HACK. TODO: do this properly
                 }
 
                 const timestamp = msg.timestamp || Date.now();
                 const agentGeopose = msg.geopose;
-                const agentName = msg.avatar.name || "";
-                const agentColor = [msg.avatar.color.r, msg.avatar.color.g, msg.avatar.color.b] || [1.0, 1.0, 1.0];
-
-                throttleCounter1 = throttleCounter1 + 1;
-                if (throttleCounter1 > 10) {  // TODO: what is a sensible number here?
+                const agentName = msg.avatar.name || '';
+                throttleCounter1 = throttleCounter1 + 1; // TODO: use lodash throttle instead of this custom solution
+                if (throttleCounter1 > 10) {
+                    // TODO: what is a sensible number here?
                     throttleCounter1 = 0;
                     if (updateFunction) {
                         const data = {
-                            'agent_geopose_updated': {
-                                'agent_id': agentId,
-                                'agent_name': agentName,
-                                'geopose': agentGeopose,
-                                'color': agentColor,
-                                'timestamp': timestamp
-                            }
+                            agent_geopose_updated: {
+                                agent_id: agentId,
+                                agent_name: agentName,
+                                geopose: agentGeopose,
+                                color: msg.avatar.color,
+                                timestamp: timestamp,
+                            },
                         };
                         updateFunction(data);
                     }
                 }
             });
 
-            console.log("Subscribing to topic " + rmq_topic_waypoint)
+            console.log('Subscribing to topic ' + rmq_topic_waypoint);
             rmqClient.subscribe(rmq_topic_waypoint, function (d) {
                 const msg = JSON.parse(d.body);
                 const waypointGeopose = msg.geopose || null;
                 if (waypointGeopose == null) {
                     return;
                 }
-                const agent_id = msg.agent_id || "unknown"; // target agent
-                const creator_id = msg.creator_id || "unknown";
+                const agent_id = msg.agent_id || 'unknown'; // target agent
+                const creator_id = msg.creator_id || 'unknown';
                 const timestamp = msg.timestamp || 0;
-                const color = msg.color ||  [1.0, 1.0, 0.0];
+                const color = msg.color || [1.0, 1.0, 0.0];
                 const data = {
-                    'waypoint_set': {
-                        'agent_id': agent_id,
-                        'creator_id': creator_id,
-                        'geopose': waypointGeopose,
-                        'color': color,
-                        'timestamp': timestamp
-                    }
+                    waypoint_set: {
+                        agent_id: agent_id,
+                        creator_id: creator_id,
+                        geopose: waypointGeopose,
+                        color: color,
+                        timestamp: timestamp,
+                    },
                 };
                 updateFunction(data);
             });
 
-            console.log("Subscribing to topic " + rmq_topic_robot_path)
+            console.log('Subscribing to topic ' + rmq_topic_robot_path);
             rmqClient.subscribe(rmq_topic_robot_path, function (d) {
                 const msg = JSON.parse(d.body);
                 const waypointGeoposes = msg.geoposes || null;
-                const agent_id = msg.agent_id || "unknown"; // target agent
-                const creator_id = msg.creator_id || "unknown";
+                const agent_id = msg.agent_id || 'unknown'; // target agent
+                const creator_id = msg.creator_id || 'unknown';
                 const timestamp = msg.timestamp || 0;
-                const color = msg.color ||  [1.0, 1.0, 0.0];
+                const color = msg.color || [1.0, 1.0, 0.0];
                 const data = {
-                    'robot_path': {
-                        'agent_id': agent_id,
-                        'creator_id': creator_id,
-                        'geoposes': waypointGeoposes,
-                        'color': color,
-                        'timestamp': timestamp
-                    }
+                    robot_path: {
+                        agent_id: agent_id,
+                        creator_id: creator_id,
+                        geoposes: waypointGeoposes,
+                        color: color,
+                        timestamp: timestamp,
+                    },
                 };
                 updateFunction(data);
             });
 
-            console.log("Subscribing to topic " + rmq_topic_chair_reservation)
+            console.log('Subscribing to topic ' + rmq_topic_chair_reservation);
             rmqClient.subscribe(rmq_topic_chair_reservation, function (d) {
                 const msg = JSON.parse(d.body);
                 console.log(msg);
                 const data = {
-                    'reservation_status_changed': {
-                        'chair_id': msg.chair_id,
-                        'reserved': msg.reserved
-                    }
+                    reservation_status_changed: {
+                        chair_id: msg.chair_id,
+                        reserved: msg.reserved,
+                    },
                 };
                 updateFunction(data);
             });
-
         };
 
         let on_error = function () {
@@ -152,7 +152,6 @@ export function connectWithReceiveCallback(onReceiveCallback) {
         rmqClient.connect(rmquser, rmqpassword, on_connect, on_error, '/');
     });
 }
-
 
 export function send(routing_key, data) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.

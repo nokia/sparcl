@@ -10,7 +10,7 @@
     import Parent from '@components/Viewer';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
     import { Vec3 } from 'ogl';
-    import { distToLineSegment } from '@core/common';
+    import { distToLineSegment, rgbToHex } from '@core/common';
     import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '@src/stateStore';
     import { get } from 'svelte/store';
     import throttle from 'lodash/throttle';
@@ -43,6 +43,17 @@
 
         startSession();
     }
+
+    const normalizeColor = (color) => {
+        if (color == null) {
+            return 1.0;
+        }
+        if (color > 1.0) {
+            return color / 255;
+        }
+        return color;
+    };
+
 
     /**
      * Setup required AR features and start the XRSession.
@@ -222,10 +233,12 @@
             const agent_geopose = data.geopose;
             // We create a new spatial content record just for placing this object
             let object_id = agent_id + '_' +  timestamp; // just a proposal
+            console.log('agent_id', agent_id)
+            console.log('data.color', data.color)
 
             let object_description = {
                 'version': 2,
-                'color': [data.color[0], data.color[1], data.color[2], 1.0],
+                'color': [normalizeColor(data.color.r), normalizeColor(data.color.g), normalizeColor(data.color.b), normalizeColor(data.color.a)],
                 'shape': PRIMITIVES.sphere,
                 'scale': [0.05, 0.05, 0.05],
                 'transparent': false,
@@ -380,49 +393,49 @@
                 "w": globalObjectPose.quaternion.w
             }
         }
-        /*
-        // BEGIN Sparcl multiplayer demo
-        const object_description = {
-            'version': 2,
-            'color': [$myAgentColor.r, $myAgentColor.g, $myAgentColor.b, $myAgentColor.a],
-            'shape': PRIMITIVES.sphere,
-            'scale': [0.05, 0.05, 0.05],
-            'transparent': false,
-            'options': {}
-        };
-        const content = {
-            "id": agent_id, // stream ID
-            "type": "geopose_stream", //high-level OSCP type
-            "title": object_id, // datapoint ID = stream ID + timestamp
-            "refs": [],
-            "geopose": geoPose,
-            "object_description": object_description
-        }
-        const scr = {
-            "content": content,
-            "id": object_id, // datapoint ID = stream ID + timestamp
-            "tenant": "IROS2022demo",
-            "type": "geopose_stream",
-            "timestamp": timestamp
-        }
-        let message_body = {
-            "scr": scr,
-            "sender": agent_id,
-            "timestamp": timestamp,
-        }
 
-        // TODO: this is for general SCR with streaming geopose
-        dispatcher('broadcast', {
-            event: 'publish_camera_pose',
-            value: message_body,
-            "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
-        });
-        // END Sparcl multiplayer demo
-        */
+        // // BEGIN Sparcl multiplayer demo
+        // const object_description = {
+        //     'version': 2,
+        //     'color': [$myAgentColor.r, $myAgentColor.g, $myAgentColor.b, $myAgentColor.a],
+        //     'shape': PRIMITIVES.sphere,
+        //     'scale': [0.05, 0.05, 0.05],
+        //     'transparent': false,
+        //     'options': {}
+        // };
+        // const content = {
+        //     "id": agent_id, // stream ID
+        //     "type": "geopose_stream", //high-level OSCP type
+        //     "title": object_id, // datapoint ID = stream ID + timestamp
+        //     "refs": [],
+        //     "geopose": geoPose,
+        //     "object_description": object_description
+        // }
+        // const scr = {
+        //     "content": content,
+        //     "id": object_id, // datapoint ID = stream ID + timestamp
+        //     "tenant": "IROS2022demo",
+        //     "type": "geopose_stream",
+        //     "timestamp": timestamp
+        // }
+        // let message_body = {
+        //     "scr": scr,
+        //     "sender": $myAgentName, // HACK: use agent id instead
+        //     "timestamp": timestamp,
+        // }
+
+        // // TODO: this is for general SCR with streaming geopose
+        // dispatcher('broadcast', {
+        //     event: 'publish_camera_pose',
+        //     value: message_body,
+        //     "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
+        // });
+        // // END Sparcl multiplayer demo
+
 
         // BEGIN dtvis demo
-        message_body = {
-            'agent_id': agent_id,
+        const message_body = {
+            'agent_id': $myAgentName, // HACK: use myAgentId here instead of myAgentName. Need to update dtvis so it can handle it
             'avatar': {
                 'name': $myAgentName,
                 'color': { 'r': $myAgentColor.r, 'g': $myAgentColor.g, 'b': $myAgentColor.b, 'a': $myAgentColor.a }
