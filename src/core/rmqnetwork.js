@@ -38,7 +38,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
         if (updateFunction) {
             updateFunction(data);
         }
-    }, 350);
+    }, 450);
 
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
@@ -67,10 +67,10 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 //console.log(msg);
 
                 const agentId = msg.agent_id || '';
-                // if (agentId == '' || agentId == get(myAgentName)) {
-                //     // HACK myAgentName should be eventually myAgentId
-                //     return;
-                // }
+                if (agentId == '' || agentId == get(myAgentName)) {
+                    // HACK myAgentName should be eventually myAgentId
+                    return;
+                }
 
                 const timestamp = msg.timestamp || Date.now();
                 const agentGeopose = msg.geopose;
