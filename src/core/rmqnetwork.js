@@ -63,7 +63,8 @@ export function connectWithReceiveCallback(onReceiveCallback) {
 
                 const agentId = msg.agent_id || '';
                 if (agentId == '' || agentId == get(myAgentName)) {
-                    return; // HACK. TODO: do this properly
+                    // HACK myAgentName should be eventually myAgentId
+                    return;
                 }
 
                 const timestamp = msg.timestamp || Date.now();
