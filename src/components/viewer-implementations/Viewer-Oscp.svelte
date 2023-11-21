@@ -90,7 +90,7 @@
     }
 
     function isIntersectingWithRobotPath (floorPose) {
-        const threshold = 1;
+        const threshold = 0.2;
         for (const view of floorPose.views) {
             for (const { robotPolyLinePoints } of Object.values(robotPolyLines)) {
                 for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {

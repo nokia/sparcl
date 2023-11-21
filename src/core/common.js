@@ -188,9 +188,9 @@ function componentToHex(c) {
     return hex.length == 1 ? '0' + hex : hex;
 }
 
-export function rgbToHex(rgbArray) {
-    if (rgbArray.length > 2) {
-        return '#' + componentToHex(rgbArray[0]) + componentToHex(rgbArray[1]) + componentToHex(rgbArray[2]);
+export function rgbToHex(rgbObj) {
+    if (rgbObj.r != null && rgbObj.g != null && rgbObj.b != null) {
+        return '#' + componentToHex(rgbObj.r) + componentToHex(rgbObj.g) + componentToHex(rgbObj.b);
     }
     return '#000000';
 }
