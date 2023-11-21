@@ -219,9 +219,6 @@
             const agent_geopose = data.geopose;
             // We create a new spatial content record just for placing this object
             let object_id = agent_id + '_' +  timestamp; // just a proposal
-            console.log('agent_id', agent_id)
-            console.log('data.color', data.color)
-
             let object_description = {
                 'version': 2,
                 'color': [normalizeColor(data.color.r), normalizeColor(data.color.g), normalizeColor(data.color.b), normalizeColor(data.color.a)],
