@@ -435,7 +435,7 @@
 
         // BEGIN dtvis demo
         const message_body = {
-            'agent_id': $myAgentName, // HACK: use myAgentId here instead of myAgentName. Need to update dtvis so it can handle it
+            'agent_id': $myAgentId,
             'avatar': {
                 'name': $myAgentName,
                 'color': { 'r': $myAgentColor.r, 'g': $myAgentColor.g, 'b': $myAgentColor.b, 'a': $myAgentColor.a }
