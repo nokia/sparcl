@@ -12,7 +12,7 @@ import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObject
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
 
 import {convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
-    convertGeodeticToEnu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees, convertWeb2GeoQuat, convertGeo2WebQuat, convertEnuToGeodetic} from '@core/locationTools';
+    convertGeodeticToEnu, getRelativeGlobalPosition, getRelativeOrientation, toDegrees, convertWeb2GeoQuat, convertGeo2WebQuat, convertEnuToGeodetic} from '@core/locationTools';
 
 import {printOglTransform, checkGLError} from '@core/devTools';
 
@@ -818,24 +818,19 @@ export default class ogl {
             throw "No localization has happened yet!";
         }
 
-        // First assemble an ENU pose
+        // First, assemble an ENU pose
         let transform = new Transform();
         // position as displacement relative to the last known global camera positision
-        let relativePosition = getRelativeGlobalPosition(_globalImagePose, geoPose);
-        relativePosition = convertGeo2WebVec3(relativePosition);
-        transform.position.set(relativePosition[0],
-                               relativePosition[1],
-                               relativePosition[2]);
+        const enuPosition = getRelativeGlobalPosition(_globalImagePose, geoPose);
+        const webxrEnuPosition = convertGeo2WebVec3(enuPosition);
+        transform.position.set(webxrEnuPosition[0], webxrEnuPosition[1], webxrEnuPosition[2]);
 
-        // geoPose orientation is given in ENU
-        //transform.quaternion.set(geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w);
-        // BUT we must convert the directions to WebXR first
-        let enuQuaternion = [geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w]
-        let webxrQuaternion = convertGeo2WebQuat(enuQuaternion);
-        transform.quaternion.set(webxrQuaternion[0], webxrQuaternion[1], webxrQuaternion[2], webxrQuaternion[3]);
+        // The geoPose orientation is given in ENU, but we must convert the directions to WebXR first
+        const enuQuaternion = [geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w]
+        const webxrEnuQuaternion = convertGeo2WebQuat(enuQuaternion); // conversion from ENU axes to WebXR axes, but keep the orientation
+        transform.quaternion.set(webxrEnuQuaternion[0], webxrEnuQuaternion[1], webxrEnuQuaternion[2], webxrEnuQuaternion[3]);
 
-
-        // Then convert the ENU pose to local WebXR pose
+        // Then convert the ENU pose to local pose
         _geo2ArTransformNode.addChild(transform);
         _geo2ArTransformNode.updateMatrixWorld(true);
         let localPose = new Transform();
@@ -858,52 +853,35 @@ export default class ogl {
         _ar2GeoTransformNode.addChild(localPose);
         _ar2GeoTransformNode.updateMatrixWorld();
 
-        let localENUPose = new Transform();
-        localENUPose.matrix = localPose.worldMatrix;
-        localENUPose.decompose();
+        let webxrEnuPose = new Transform(); // this will be still with WebXR axes but already aligned with ENU
+        webxrEnuPose.matrix = localPose.worldMatrix;
+        webxrEnuPose.decompose();
         _ar2GeoTransformNode.removeChild(localPose);
 
-    1   // TODO: rename to enuPose and enuPosition
-        let localEnuPosition = vec3.fromValues(
-                localENUPose.position.x,
-                localENUPose.position.y,
-                localENUPose.position.z);
-        localEnuPosition = convertWeb2GeoVec3(localEnuPosition);
+        const webxrEnuPosition = vec3.fromValues(webxrEnuPose.position.x, webxrEnuPose.position.y, webxrEnuPose.position.z);
+        const enuPosition = convertWeb2GeoVec3(webxrEnuPosition); // conversion from WebXR axes to ENU axes
+        const dE = enuPosition[0];
+        const dN = enuPosition[1];
+        const dU = enuPosition[2];
 
-        let dE = localEnuPosition[0];
-        let dN = localEnuPosition[1];
-        let dU = localEnuPosition[2];
-
-
-        let refGeoPose = _globalImagePose;
-//        //TODO: do proper conversion here!
-//        // See https://www.movable-type.co.uk/scripts/latlong.html
-//        //const R = 6371009; // Earth radius (assuming a sphere)
-//        const R = getEarthRadiusAt(refGeoPose.position.lat);
-//        let dLon = toDegrees(Math.atan2(dE, R));
-//        let dLat = toDegrees(Math.atan2(dN, R));
-//        let dHeight = dU;
-        // This is the proper conversion:
+        const refGeoPose = _globalImagePose;
         const geodetic = convertEnuToGeodetic(dE, dN, dU, refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
 
+        // TODO: double-check how to swap orientation axes
+        const webxrEnuQuaternion = quat.fromValues(webxrEnuPose.quaternion.x, webxrEnuPose.quaternion.y, webxrEnuPose.quaternion.z, webxrEnuPose.quaternion.w);
+        const enuQuaternion = convertWeb2GeoQuat(webxrEnuQuaternion);
 
-        //TODO: swap orientation axes
-        let localENUQuaternion = quat.fromValues(localENUPose.quaternion.x, localENUPose.quaternion.y, localENUPose.quaternion.z, localENUPose.quaternion.w);
-        // swap axes
-        localENUQuaternion = convertWeb2GeoQuat(localENUQuaternion);
-        //localENUPose.quaternion.set(localENUQuaternion[0], localENUQuaternion[1], localENUQuaternion[2], localENUQuaternion[3]);
-
-        let geoPose = {
+        const geoPose = {
             "position": {
-                "lat": geodetic.lat, //refGeoPose.position.lat + dLat,
-                "lon": geodetic.lon, //refGeoPose.position.lon + dLon,
-                "h": geodetic.h //refGeoPose.position.h + dHeight,
+                "lat": geodetic.lat,
+                "lon": geodetic.lon,
+                "h": geodetic.h
             },
             "quaternion": {
-                "x": localENUQuaternion[0], //localENUPose.quaternion.x,
-                "y": localENUQuaternion[1], //localENUPose.quaternion.y,
-                "z": localENUQuaternion[2], //localENUPose.quaternion.z,
-                "w": localENUQuaternion[3] //localENUPose.quaternion.w
+                "x": enuQuaternion[0],
+                "y": enuQuaternion[1],
+                "z": enuQuaternion[2],
+                "w": enuQuaternion[3]
             }
         }
         return geoPose;

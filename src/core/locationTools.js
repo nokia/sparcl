@@ -46,7 +46,6 @@ export function upgradeGeoPoseStandard(geoPose) {
  * @param latitude number in degrees
  * @returns Earth radius in meters at input latitude
  */
-/*
 export function getEarthRadiusAt(latitude) {
     // https://en.wikipedia.org/wiki/Earth_ellipsoid
     // https://rechneronline.de/earth-radius/
@@ -62,7 +61,7 @@ export function getEarthRadiusAt(latitude) {
 
     return Math.sqrt(numerator / denominator);
 }
-*/
+
 
 // stores the UTC timestamp of the last query to getCurrentLocation(). We must not call the OpenStreetMap API higher than 1 Hz.
 // This is important in case the SSD is not available and the client keeps retrying this call.
