@@ -19,6 +19,7 @@
     import {PRIMITIVES} from "@core/engines/ogl/modelTemplates";
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource = null;
+    let robotPathClearTimeouts = {};
     let robotWaypointModel = null;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
@@ -300,6 +301,9 @@
             if (robotPolyLines[msg.agent_id]) {
                 parentInstance.getRenderer().remove(robotPolyLines[msg.agent_id].robotPolyLine);
             }
+            if (robotPathClearTimeouts[msg.agent_id]) {
+                clearTimeout(robotPathClearTimeouts[msg.agent_id])
+            }
             networkEvent += 1;
             const robotPolyLinePoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
@@ -308,6 +312,10 @@
             const hexColor = agentIdToAgentHexColor[msg.agent_id];
             const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
             robotPolyLines = { ...robotPolyLines, [msg.agent_id]: { robotPolyLine, robotPolyLinePoints } }
+            robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {
+                parentInstance.getRenderer().remove(robotPolyLines[msg.agent_id].robotPolyLine);
+                delete robotPolyLines[msg.agent_id]
+            }, 2000)
         }
 
         if ('reservation_status_changed' in events) {
