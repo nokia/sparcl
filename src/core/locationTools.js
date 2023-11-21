@@ -430,7 +430,7 @@ const e_sq = f * (2 - f);
  * Converts WGS-84 Geodetic point (lat, lon, h) to the
  * Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
  */
-export function geodetic_to_ecef(lat, lon, h) {
+export function convertGeodeticToEcef(lat, lon, h) {
     const lamb = toRadians(lat);
     const phi = toRadians(lon);
 
@@ -453,7 +453,7 @@ export function geodetic_to_ecef(lat, lon, h) {
  * East-North-Up coordinates in a Local Tangent Plane that is centered at the
  * (WGS-84) Geodetic point (lat0, lon0, h0).
  */
-export function ecef_to_enu(x, y, z, lat0, lon0, h0) {
+export function convertEcefToEnu(x, y, z, lat0, lon0, h0) {
     const ecef_ref = convertGeodeticToEcef(lat0, lon0, h0);
 
     const xd = x - ecef_ref.x;
@@ -477,13 +477,13 @@ export function ecef_to_enu(x, y, z, lat0, lon0, h0) {
     return { x: xEast, y: yNorth, z: zUp };
 }
 
-export function geodetic_to_enu(lat, lon, h, lat0, lon0, h0) {
-    let ecef = geodetic_to_ecef(lat, lon, h);
-    return ecef_to_enu(ecef.x, ecef.y, ecef.z, lat0, lon0, h0);
+export function convertGeodeticToEnu(lat, lon, h, lat0, lon0, h0) {
+    let ecef = convertGeodeticToEcef(lat, lon, h);
+    return convertEcefToEnu(ecef.x, ecef.y, ecef.z, lat0, lon0, h0);
 }
 
 
-export function enu_to_ecef(xEast, yNorth, zUp, lat0, lon0, h0) {
+export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
     const lamb = toRadians(lat0);
     const phi = toRadians(lon0);
 
@@ -517,7 +517,7 @@ export function enu_to_ecef(xEast, yNorth, zUp, lat0, lon0, h0) {
 // latitude and height equations’, B R Bowring, Survey Review vol 28, 218, Oct 1985.
 // ported from https://github.com/chrisveness/geodesy/blob/master/latlon-ellipsoidal.js#L378
 // Formula from http://www.movable-type.co.uk/scripts/latlong-os-gridref.html#cartesian-to-geodetic
-export function ecef_to_geodetic(x, y, z) {
+export function convertEcefToGeodetic(x, y, z) {
     const e1_sq = 2 * f - f * f; // 1st eccentricity squared = (a^2 − b^2) / a^2
     const e2_sq = e1_sq / (1 - e1_sq); // 2nd eccentricity squared = (a^2 − b^2) / b^2
     const p = Math.sqrt(x * x + y * y); // distance from minor axis
@@ -546,9 +546,9 @@ export function ecef_to_geodetic(x, y, z) {
     return { lat: toDegrees(latRad), lon: toDegrees(lonRad), h: height };
 }
 
-export function enu_to_geodetic(xEast, yNorth, zUp, lat0, lon0, h0){
-    const enu = enu_to_ecef(xEast, yNorth, zUp, lat0, lon0, h0);
-    const geodetic = ecef_to_geodetic(enu.x, enu.y, enu.z);
+export function convertEnuToGeodetic(xEast, yNorth, zUp, lat0, lon0, h0){
+    const enu = convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0);
+    const geodetic = convertEcefToGeodetic(enu.x, enu.y, enu.z);
     return geodetic;
 }
 
@@ -570,7 +570,7 @@ export function convertLocalPoseToGeoPose(localPose, T_local_to_enu, refGeoPose)
     const lat_ref = refGeoPose.position.lat;
     const lon_ref = refGeoPose.position.lon;
     const h_ref = refGeoPose.position.h
-    const geodetic = enu_to_geodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
+    const geodetic = convertEnuToGeodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
 
     const geoPose = {
         "position": {
