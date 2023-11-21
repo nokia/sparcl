@@ -191,20 +191,6 @@
         new Audio('media/audio/ding-36029.mp3').play();
     }
 
-    function setRobotPathWaypointObject(localTargetPose) {
-        // Create a waypoint object
-        const shape = PRIMITIVES.cylinder;
-        let options = {};
-        options.radiusTop = 0.3;
-        options.radiusBottom = 0.3;
-        options.height = 2;
-        const fragmentShader = colorfulFragment;
-        const scale = 0.1;
-        robotWaypointModel = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
-        robotWaypointModel.scale.set(scale);
-        return robotWaypointModel;
-    }
-
     /**
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
@@ -316,22 +302,15 @@
             const msg = events.robot_path;
             if (robotPolyLines[msg.agent_id]) {
                 parentInstance.getRenderer().remove(robotPolyLines[msg.agent_id].robotPolyLine);
-                robotPolyLines[msg.agent_id].robotWaypoints.forEach((robotWaypoint) => {
-                    parentInstance.getRenderer().remove(robotWaypoint);
-                })
             }
             networkEvent += 1;
-            const robotWaypoints = msg.geoposes.map((geopose) => {
-                const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
-                return setRobotPathWaypointObject(localTargetPose);
-            })
             const robotPolyLinePoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
             })
             const hexColor = agentIdToAgentHexColor[msg.agent_id];
             const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
-            robotPolyLines = { ...robotPolyLines, [msg.agent_id]: { robotPolyLine, robotPolyLinePoints, robotWaypoints } }
+            robotPolyLines = { ...robotPolyLines, [msg.agent_id]: { robotPolyLine, robotPolyLinePoints } }
         }
 
         if ('reservation_status_changed' in events) {
