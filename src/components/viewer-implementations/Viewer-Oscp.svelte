@@ -309,14 +309,6 @@
             let globalTargetPose = msg.geopose;
             let localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
 
-            // HACK HACK HACK if this was sent from the dtvis, then set its height over the ground
-
-            if (msg.creator_id == "1") {
-                console.log("This was sent from dtvis!");
-                //console.log(localTargetPose);
-                localTargetPose.position[1] = 0; // Y UP
-            }
-
             setWaypointObject(globalTargetPose, localTargetPose, active);
         }
 
@@ -384,7 +376,7 @@
             "position": {
                 "lat": globalObjectPose.position.lat,
                 "lon": globalObjectPose.position.lon,
-                "h": globalObjectPose.position.h - 1.3 // HACK HACK HACK
+                "h": globalObjectPose.position.h,
             },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
