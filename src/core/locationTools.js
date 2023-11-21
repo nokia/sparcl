@@ -4,8 +4,8 @@
 */
 
 /*
-    Utility function helping with calculations around GeoPose.
- */
+  Utility functions helping with calculations around GeoPose.
+*/
 
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
 import {quat, vec3} from 'gl-matrix';
@@ -46,6 +46,7 @@ export function upgradeGeoPoseStandard(geoPose) {
  * @param latitude number in degrees
  * @returns Earth radius in meters at input latitude
  */
+/*
 export function getEarthRadiusAt(latitude) {
     // https://en.wikipedia.org/wiki/Earth_ellipsoid
     // https://rechneronline.de/earth-radius/
@@ -61,6 +62,7 @@ export function getEarthRadiusAt(latitude) {
 
     return Math.sqrt(numerator / denominator);
 }
+*/
 
 // stores the UTC timestamp of the last query to getCurrentLocation(). We must not call the OpenStreetMap API higher than 1 Hz.
 // This is important in case the SSD is not available and the client keeps retrying this call.
@@ -418,73 +420,83 @@ export function getRelativeOrientation(q1, q2) {
 }
 
 
-const a = 6378137;
-const b = 6356752.3142;
+// Constants of the WGS84 Earth ellipsoid
+const a = 6378137.000;  // Earth ellipsoid radius at equator
+const b = 6356752.3142; // Earth ellipsoid radius at poles
 const f = (a - b) / a;
 const e_sq = f * (2 - f);
 
 /**
-* Converts WGS-84 Geodetic point (lat, lon, h) to the
-* Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
-*/
+ * Converts WGS-84 Geodetic point (lat, lon, h) to the
+ * Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
+ */
 export function geodetic_to_ecef(lat, lon, h) {
-    let lamb = toRadians(lat);
-    let phi = toRadians(lon);
-    let s = Math.sin(lamb);
-    let N = a / Math.sqrt(1 - e_sq * s * s);
-
-    let sin_lambda = Math.sin(lamb);
-    let cos_lambda = Math.cos(lamb);
-    let sin_phi = Math.sin(phi);
-    let cos_phi = Math.cos(phi);
-
-    let x = (h + N) * cos_lambda * cos_phi;
-    let y = (h + N) * cos_lambda * sin_phi;
-    let z = (h + (1 - e_sq) * N) * sin_lambda;
-
-    return { "x": x, "y": y, "z": z };
-}
-
-/**
-* Converts the Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z) to
-* East-North-Up coordinates in a Local Tangent Plane that is centered at the
-* (WGS-84) Geodetic point (lat_ref, lon_ref, h_ref).
-*/
-export function ecef_to_enu(x, y, z, lat_ref, lon_ref, h_ref) {
-    let { x0, y0, z0} = geodetic_to_ecef(lat_ref, lon_ref, h_ref);
-
-    let xd = x - x0;
-    let yd = y - y0;
-    let zd = z - z0;
-
-    let xEast = -sin_phi * xd + cos_phi * yd;
-    let yNorth = -cos_phi * sin_lambda * xd - sin_lambda * sin_phi * yd + cos_lambda * zd;
-    let zUp = cos_lambda * cos_phi * xd + cos_lambda * sin_phi * yd + sin_lambda * zd;
-
-    return { "x": xEast, "y": yNorth, "z": zUp }
-}
-
-export function geodetic_to_enu(lat, lon, h, lat_ref, lon_ref, h_ref) {
-    let ecef = geodetic_to_ecef(lat, lon, h);
-    return ecef_to_enu(ecef.x, ecef.y, ecef.z, lat_ref, lon_ref, h_ref);
-}
-
-
-
-export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
-    const lamb = toRadians(lat0);
-    const phi = toRadians(lon0);
-    const s = Math.sin(lamb);
-    const N = a / Math.sqrt(1 - e_sq * s * s);
+    const lamb = toRadians(lat);
+    const phi = toRadians(lon);
 
     const sin_lambda = Math.sin(lamb);
     const cos_lambda = Math.cos(lamb);
     const sin_phi = Math.sin(phi);
     const cos_phi = Math.cos(phi);
 
-    const x0 = (h0 + N) * cos_lambda * cos_phi;
-    const y0 = (h0 + N) * cos_lambda * sin_phi;
-    const z0 = (h0 + (1 - e_sq) * N) * sin_lambda;
+    const nu = a / Math.sqrt(1 - e_sq * sin_lambda * sin_lambda);
+
+    const x = (h + nu) * cos_lambda * cos_phi;
+    const y = (h + nu) * cos_lambda * sin_phi;
+    const z = (h + (1 - e_sq) * nu) * sin_lambda;
+
+    return { x: x, y: y, z: z };
+}
+
+/**
+ * Converts the Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z) to
+ * East-North-Up coordinates in a Local Tangent Plane that is centered at the
+ * (WGS-84) Geodetic point (lat0, lon0, h0).
+ */
+export function ecef_to_enu(x, y, z, lat0, lon0, h0) {
+    const ecef_ref = convertGeodeticToEcef(lat0, lon0, h0);
+
+    const xd = x - ecef_ref.x;
+    const yd = y - ecef_ref.y;
+    const zd = z - ecef_ref.z;
+
+    const lamb = toRadians(lat0);
+    const phi = toRadians(lon0);
+
+    const sin_lambda = Math.sin(lamb);
+    const cos_lambda = Math.cos(lamb);
+    const sin_phi = Math.sin(phi);
+    const cos_phi = Math.cos(phi);
+
+    const t = -cos_phi * xd - sin_phi * yd;
+
+    const xEast = -sin_phi * xd + cos_phi * yd;
+    const yNorth = t * sin_lambda + cos_lambda * zd;
+    const zUp = cos_lambda * cos_phi * xd + cos_lambda * sin_phi * yd + sin_lambda * zd;
+
+    return { x: xEast, y: yNorth, z: zUp };
+}
+
+export function geodetic_to_enu(lat, lon, h, lat0, lon0, h0) {
+    let ecef = geodetic_to_ecef(lat, lon, h);
+    return ecef_to_enu(ecef.x, ecef.y, ecef.z, lat0, lon0, h0);
+}
+
+
+export function enu_to_ecef(xEast, yNorth, zUp, lat0, lon0, h0) {
+    const lamb = toRadians(lat0);
+    const phi = toRadians(lon0);
+
+    const sin_lambda = Math.sin(lamb);
+    const cos_lambda = Math.cos(lamb);
+    const sin_phi = Math.sin(phi);
+    const cos_phi = Math.cos(phi);
+
+    const nu = a / Math.sqrt(1 - e_sq * sin_lambda * sin_lambda);
+
+    const x0 = (h0 + nu) * cos_lambda * cos_phi;
+    const y0 = (h0 + nu) * cos_lambda * sin_phi;
+    const z0 = (h0 + (1 - e_sq) * nu) * sin_lambda;
 
     const t = cos_lambda * zUp - sin_lambda * yNorth;
 
@@ -496,57 +508,47 @@ export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
     const y = yd + y0;
     const z = zd + z0;
 
-    return { "x": x, "y": y, "z": z };
+    return { x: x, y: y, z: z };
 }
 
 // Convert from ECEF cartesian coordinates to
-// latitude, longitude and height (WGS84)
-export function convertEcefToGeodetic(x, y, z) {
-    const x2 = x * x;
-    const y2 = y * y;
-    const z2 = z * z;
+// latitude, longitude and height (WGS-84)
+// Uses Bowring’s (1985) formulation for μm precision in concise form; ‘The accuracy of geodetic
+// latitude and height equations’, B R Bowring, Survey Review vol 28, 218, Oct 1985.
+// ported from https://github.com/chrisveness/geodesy/blob/master/latlon-ellipsoidal.js#L378
+// Formula from http://www.movable-type.co.uk/scripts/latlong-os-gridref.html#cartesian-to-geodetic
+export function ecef_to_geodetic(x, y, z) {
+    const e1_sq = 2 * f - f * f; // 1st eccentricity squared = (a^2 − b^2) / a^2
+    const e2_sq = e1_sq / (1 - e1_sq); // 2nd eccentricity squared = (a^2 − b^2) / b^2
+    const p = Math.sqrt(x * x + y * y); // distance from minor axis
+    const R = Math.sqrt(p * p + z * z); // polar radius
 
-    const e = Math.sqrt(1 - (b / a) * (b / a));
-    const b2 = b * b;
-    const e2 = e * e;
-    const ep = e * (a / b);
-    const r = Math.sqrt(x2 + y2);
-    const r2 = r * r;
-    const E2 = a * a - b * b;
-    const F = 54 * b2 * z2;
-    const G = r2 + (1 - e2) * z2 - e2 * E2;
-    const c = (e2 * e2 * F * r2) / (G * G * G);
-    const s = Math.pow((1 + c + Math.sqrt(c * c + 2 * c)), (1 / 3));
-    const P = F / (3 * Math.pow((s + 1 / s + 1), 2) * G * G); //TODO: this line is probably wrong!
-    const Q = Math.sqrt(1 + 2 * e2 * e2 * P);
-    const ro = -(P * e2 * r) / (1 + Q) + Math.sqrt((a * a / 2) * (1 + 1 / Q) - (P * (1 - e2) * z2) / (Q * (1 + Q)) - P * r2 / 2);
-    const tmp = Math.pow((r - e2 * ro), 2);
-    const U = Math.sqrt(tmp + z2);
-    const V = Math.sqrt(tmp + (1 - e2) * z2);
-    const zo = (b2 * z) / (a * V);
+    // parametric latitude (Bowring eqn.17, replacing tanBeta = z*a / p*b)
+    const tanBeta = (b * z) / (a * p) * (1 + e2_sq * b / R);
+    const sinBeta = tanBeta / Math.sqrt(1 + tanBeta * tanBeta);
+    const cosBeta = sinBeta / tanBeta;
 
-    const height = U * (1 - b2 / (a * V));
-    const lat = Math.atan((z + ep * ep * zo) / r);
-    const temp = Math.atan(y / x);
-    let lon = 0.0;
-    if (x >= 0) {
-        lon = temp;
-    } else if (x < 0 && y >= 0) {
-        lon = Math.PI + temp;
-    } else {
-        lon = temp - Math.PI;
+    // geodetic latitude (Bowring eqn.18: tanPhi = z + e2_sq * b * (sinBeta)^3 / p − e1_sq * (cosBeta)^3)
+    let latRad = 0.0;
+    if (!Number.isNaN(cosBeta)) {
+        latRad = Math.atan2(z + e2_sq * b* sinBeta * sinBeta * sinBeta, p - e1_sq * a * cosBeta * cosBeta * cosBeta);
     }
 
-    const lat0 = lat / (Math.PI / 180); // TODO: toDegrees
-    const lon0 = lon / (Math.PI / 180); // TODO: toDegrees
-    const h0 = height;
+    // longitude
+    const lonRad = Math.atan2(y, x);
 
-    return { "lat": lat0, "lon": lon0, "h": h0 }; // TODO: remove 0 from name
+    // height above ellipsoid (Bowring eqn.7)
+    const sinLat = Math.sin(latRad);
+    const cosLat = Math.cos(latRad);
+    const nu = a / Math.sqrt(1 - e1_sq * sinLat * sinLat); // length of the normal terminated by the minor axis
+    const height = p * cosLat + z * sinLat - (a * a / nu);
+
+    return { lat: toDegrees(latRad), lon: toDegrees(lonRad), h: height };
 }
 
-export function convertEnuToGeodetic(xEast, yNorth, zUp, lat_ref, lon_ref, h_ref){
-    const enu = convertEnuToEcef(xEast, yNorth, zUp, lat_ref, lon_ref, h_ref);
-    const geodetic = convertEcefToGeodetic(enu.x, enu.y, enu.z);
+export function enu_to_geodetic(xEast, yNorth, zUp, lat0, lon0, h0){
+    const enu = enu_to_ecef(xEast, yNorth, zUp, lat0, lon0, h0);
+    const geodetic = ecef_to_geodetic(enu.x, enu.y, enu.z);
     return geodetic;
 }
 
@@ -568,7 +570,7 @@ export function convertLocalPoseToGeoPose(localPose, T_local_to_enu, refGeoPose)
     const lat_ref = refGeoPose.position.lat;
     const lon_ref = refGeoPose.position.lon;
     const h_ref = refGeoPose.position.h
-    const geodetic = convertEnuToGeodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
+    const geodetic = enu_to_geodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
 
     const geoPose = {
         "position": {
