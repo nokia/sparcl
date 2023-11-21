@@ -12,7 +12,7 @@ import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObject
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder, PRIMITIVES} from '@core/engines/ogl/modelTemplates';
 
 import {convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
-    geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees, convertWeb2GeoQuat, convertGeo2WebQuat, convertEnuToGeodetic} from '@core/locationTools';
+    convertGeodeticToEnu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees, convertWeb2GeoQuat, convertGeo2WebQuat, convertEnuToGeodetic} from '@core/locationTools';
 
 import {printOglTransform, checkGLError} from '@core/devTools';
 
@@ -916,7 +916,7 @@ export default class ogl {
      * @returns
      */
     geoPose_to_ENU(geoPose, refGeoPose) {
-        let enuPosition = geodetic_to_enu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h,
+        let enuPosition = convertGeodeticToEnu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h,
                         refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
 
         let enuPose = new Transform();
