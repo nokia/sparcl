@@ -1,4 +1,4 @@
-import { myAgentName } from '@src/stateStore';
+import { myAgentId } from '@src/stateStore';
 import { get } from 'svelte/store';
 import throttle from 'lodash/throttle';
 // TODO: remove these from the git history
@@ -67,8 +67,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 //console.log(msg);
 
                 const agentId = msg.agent_id || '';
-                if (agentId == '' || agentId == get(myAgentName)) {
-                    // HACK myAgentName should be eventually myAgentId
+                if (agentId == '' || agentId == get(myAgentId)) {
                     return;
                 }
 
