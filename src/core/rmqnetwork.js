@@ -143,8 +143,8 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 });
             };
 
-            let on_error = function () {
-                console.log('error');
+            let on_error = function (err) {
+                console.log(`Error: rabbitmq connection disconnected, reason: ${err}. Trying to reconnect.`);
                 setTimeout(connection, 1000);
             };
 
