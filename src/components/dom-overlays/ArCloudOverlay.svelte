@@ -8,43 +8,24 @@
     import { createEventDispatcher } from 'svelte';
     import { isLocalizingMessage, isLocalizedMessage, localizeMessage, localizeLabel, movePhoneMessage, resetLabel } from '@src/contentStore';
     import { isUserOnRobotPath, userOnRobotPathBlinkingAlert } from '@src/stateStore';
+    import Select from './Select.svelte';
 
     export let hasPose = false;
-    export let networkEvent
+    export let networkEvent;
+    export let agentInfo;
     export let isLocalizing = false;
     export let isLocalized = false;
     export let receivedContentTitles = [];
+    let agentSelected;
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
     const blinkingAlertStates = {
         state1: 'color: red',
         state2: 'color: black',
-    }
+    };
+    $: dispatch('agentSelected', agentSelected);
 </script>
-
-
-<style>
-    .spinner {
-        height: 50px;
-    }
-
-
-    button {
-        width: 100%;
-        height: 49px;
-
-        margin-bottom: 27px;
-
-        font-size: 18px;
-        font-weight: bold;
-
-        background-color: white;
-        border: 2px solid #2E4458;
-        border-radius: var(--ui-radius);
-    }
-</style>
-
 
 <p>networkEvent {networkEvent}</p>
 {#if $isUserOnRobotPath}
@@ -61,6 +42,9 @@
 {:else if isLocalized}
     <p>{$isLocalizedMessage}</p>
     <button on:click={() => dispatch('relocalize')}>{$resetLabel}</button>
+    {#if Object.values(agentInfo).length > 0}
+        <Select class="select" bind:value={agentSelected} displayFunc={(option) => option.agentName} options={Object.values(agentInfo)}></Select>
+    {/if}
     {#if receivedContentTitles.length > 0}
         <div align="left">
             <p>Received objects(s):</p>
@@ -71,3 +55,22 @@
     {/if}
 {/if}
 
+<style>
+    .spinner {
+        height: 50px;
+    }
+
+    button {
+        width: 100%;
+        height: 49px;
+
+        margin-bottom: 27px;
+
+        font-size: 18px;
+        font-weight: bold;
+
+        background-color: white;
+        border: 2px solid #2e4458;
+        border-radius: var(--ui-radius);
+    }
+</style>

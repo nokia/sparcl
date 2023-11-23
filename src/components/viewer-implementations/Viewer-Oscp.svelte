@@ -23,7 +23,8 @@
     let robotWaypointModel = null;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
-    let agentIdToAgentHexColor = {};
+    let selectedAgentIdToSend = null;
+    let agentInfo = {};
     let networkEvent = 0;
     let robotPolyLines = {};
     const kMyWaypointTargetAgentId = "robot2"  // TODO: select from available robot agent_ids (which robot we want to control)
@@ -111,6 +112,9 @@
     let reticle = null;
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
     function myTapHandler(event) {
+        if (!selectedAgentIdToSend) {
+            return
+        }
         if (reticle == undefined || reticle == null || reticle.visible == false) {
             console.log("UI tapped but reticle is undefined :(");
             return;
@@ -143,7 +147,7 @@
 
 
         // A set waypoint directly
-        //setWaypointObject(globalTargetPose, localTargetPose, true);
+        //setWaypointObject({ globalTargetPose, localTargetPose, active: true });
         //
         // B publish the waypoint instead and receive it through the messaging system
         const message_body = {
@@ -152,7 +156,7 @@
             "sender": $myAgentId, // can the sender be different from the creator of the command? in some cases maybe yes.
             "timestamp": Date.now(),//new Date().getTime(), // TODO: use the timestamp from the message,
             "creator_id": $myAgentId,
-            "agent_id": kMyWaypointTargetAgentId // we send the command to this robot
+            "agent_id": selectedAgentIdToSend // we send the command to this robot
         }
         dispatcher('broadcast', {
             event: 'waypoint_set',
@@ -163,7 +167,7 @@
 
     // TODO: if there is already one, do not recreate but just move it
     // TODO: globalTargetPose can be factored out from this method
-    function setWaypointObject(globalTargetPose, localTargetPose, active=true) {
+    function setWaypointObject({ globalTargetPose, localTargetPose, active = true, playAudio = true }) {
         // remove any previous waypoint
         if (robotWaypointModel) {
             parentInstance.getRenderer().remove(robotWaypointModel);
@@ -189,7 +193,9 @@
         $robotTargetWaypoint.floorpose = localTargetPose;
         console.log("WAYPOINT SET!");
         console.log($robotTargetWaypoint);
-        new Audio('media/audio/ding-36029.mp3').play();
+        if (playAudio) {
+            new Audio('media/audio/ding-36029.mp3').play();
+        }
     }
 
     /**
@@ -215,7 +221,7 @@
         if ('agent_geopose_updated' in events) {
             let data = events.agent_geopose_updated;
             const agent_id = data.agent_id;
-            agentIdToAgentHexColor = { ...agentIdToAgentHexColor, [agent_id]: rgbToHex(data.color) };
+            agentInfo = { ...agentInfo, [agent_id]: { hexColor: rgbToHex(data.color), agentName: data.agent_name || agent_id, agentId: agent_id  }};
             const timestamp = data.timestamp;
             const agent_geopose = data.geopose;
             // We create a new spatial content record just for placing this object
@@ -293,7 +299,10 @@
             let globalTargetPose = msg.geopose;
             let localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
 
-            setWaypointObject(globalTargetPose, localTargetPose, active);
+            if (msg.agent_id === $myAgentId || msg.agent_id === selectedAgentIdToSend) {
+                const playAudio = msg.agent_id === $myAgentId;
+                setWaypointObject({ globalTargetPose, localTargetPose, active, playAudio });
+            }
         }
 
         if ('robot_path' in events) {
@@ -311,7 +320,7 @@
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
             })
-            const hexColor = agentIdToAgentHexColor[msg.agent_id];
+            const { hexColor } = agentInfo[msg.agent_id];
             const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
             robotPolyLines[msg.agent_id] = { robotPolyLine, robotPolyLinePoints };
             robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {
@@ -529,11 +538,13 @@
         >
         <ArCloudOverlay
             networkEvent={networkEvent}
+            agentInfo={agentInfo}
             hasPose="{firstPoseReceived}"
             isLocalizing="{isLocalizing}"
             isLocalized="{isLocalized}"
             receivedContentTitles="{receivedContentTitles}"
             on:startLocalisation={() => parentInstance.startLocalisation()}
+            on:agentSelected={(event) => {selectedAgentIdToSend = event.detail.agentId}}
             on:relocalize={() => {
                 robotPolyLines = {};
                 parentInstance.relocalize();
