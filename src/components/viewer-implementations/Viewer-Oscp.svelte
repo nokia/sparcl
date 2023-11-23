@@ -69,7 +69,6 @@
         if (useReticle) {
             requiredXrFeatures.push('hit-test');
             // our callback for hit test results (event handler for screen tap)
-            parentInstance.getRenderer().setExperimentTapHandler(myTapHandler);
         }
 
         await parentInstance.startSession(
@@ -114,7 +113,7 @@
     import { getRelativeGlobalPosition } from '@core/locationTools';
     let reticle = null;
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
-    function myTapHandler(event) {
+    function handleSendWaypoint() {
         if (!selectedAgentIdToSend) {
             return;
         }
@@ -124,11 +123,6 @@
         }
         if ($recentLocalisation.geopose?.position === undefined || $recentLocalisation.floorpose?.transform?.position === undefined) {
             console.log('UI tapped but the recent localization result is empty :(');
-            return;
-        }
-
-        if (event.y > event.view.outerHeight * 0.75) {
-            // do not react to the lower 25% of the view (where the buttons are)
             return;
         }
 
@@ -536,6 +530,9 @@
             on:startLocalisation={() => parentInstance.startLocalisation()}
             on:agentSelected={(event) => {
                 selectedAgentIdToSend = event.detail.agentId;
+            }}
+            on:sendWaypoint={() => {
+                handleSendWaypoint();
             }}
             on:relocalize={() => {
                 robotPolyLines = {};

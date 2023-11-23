@@ -43,7 +43,13 @@
     <p>{$isLocalizedMessage}</p>
     <button on:click={() => dispatch('relocalize')}>{$resetLabel}</button>
     {#if Object.values(agentInfo).length > 0}
-        <Select class="select" bind:value={agentSelected} displayFunc={(option) => option.agentName} options={Object.values(agentInfo)}></Select>
+        <div class="select">
+            <p>Select agent to send waypoints to:</p>
+            <Select bind:value={agentSelected} displayFunc={(option) => option.agentName} options={Object.values(agentInfo)}></Select>
+        </div>
+        <div style="padding-top: 10px">
+            <button on:click={() => dispatch('sendWaypoint')}>Send waypoint</button>
+        </div>
     {/if}
     {#if receivedContentTitles.length > 0}
         <div align="left">
@@ -53,11 +59,34 @@
             {/each}
         </div>
     {/if}
+    <div style="padding-top: 10px"></div>
 {/if}
 
 <style>
     .spinner {
         height: 50px;
+    }
+
+    @media (max-width: 700px) {
+        .select {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+    }
+
+    @media (min-width: 701px) {
+        .select {
+            display: flex;
+            flex-direction: row;
+            gap: 1rem;
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+        }
     }
 
     button {
