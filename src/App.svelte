@@ -7,6 +7,7 @@
     Handles and coordinates all global aspects of the app.
 -->
 <script>
+    import "./app.css";
     import {onMount, tick} from "svelte";
     import {writable} from 'svelte/store';
 
