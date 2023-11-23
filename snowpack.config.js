@@ -8,8 +8,7 @@ module.exports = {
   plugins: [
       '@snowpack/plugin-svelte',
       '@snowpack/plugin-dotenv',
-      'snowpack-plugin-glslify',
-      '@snowpack/plugin-postcss',
+      'snowpack-plugin-glslify'
     ],
 /*
   routes: [
@@ -30,8 +29,7 @@ module.exports = {
   devOptions: {
     secure: true,
     hostname: '0.0.0.0',
-    open: 'none',
-    tailwindConfig: './tailwind.config.js',
+    open: 'none'
   },
   buildOptions: {
     htmlFragments: true
