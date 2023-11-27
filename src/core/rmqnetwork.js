@@ -38,7 +38,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
         if (updateFunction) {
             updateFunction(data);
         }
-    }, 450);
+    }, 0);
 
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
