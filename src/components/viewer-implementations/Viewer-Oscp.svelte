@@ -6,6 +6,7 @@
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
+
 <script>
     import Parent from '@components/Viewer';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
@@ -16,21 +17,22 @@
     import throttle from 'lodash/throttle';
 
     // just for drawing an agent
-    import {PRIMITIVES} from "@core/engines/ogl/modelTemplates";
+    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource = null;
-    let robotPathClearTimeouts = {};
+    const robotPathClearTimeouts = {};
     let robotWaypointModel = null;
     import { checkGLError } from '@core/devTools';
     let myGl = null;
-    let agentIdToAgentHexColor = {};
+    let selectedAgentIdToSend = null;
+    let agentInfo = {};
     let networkEvent = 0;
     let robotPolyLines = {};
-    const kMyWaypointTargetAgentId = "robot2"  // TODO: select from available robot agent_ids (which robot we want to control)
+    const kMyWaypointTargetAgentId = 'robot2'; // TODO: select from available robot agent_ids (which robot we want to control)
 
     let parentInstance;
 
-    import {createEventDispatcher} from 'svelte';
+    import { createEventDispatcher } from 'svelte';
     const dispatcher = createEventDispatcher();
 
     /**
@@ -55,7 +57,6 @@
         return color;
     };
 
-
     /**
      * Setup required AR features and start the XRSession.
      */
@@ -66,62 +67,62 @@
 
         // TODO: move the whole reticle and tap handler stuff into the base Viewer
         if (useReticle) {
-            requiredXrFeatures.push('hit-test')
+            requiredXrFeatures.push('hit-test');
             // our callback for hit test results (event handler for screen tap)
-            parentInstance.getRenderer().setExperimentTapHandler(myTapHandler);
         }
 
-        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            onXrSessionEnded,
+            onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
 
                 myGl = gl;
 
-                if (useReticle){
+                if (useReticle) {
                     // request hit testing
-                    result.requestReferenceSpace('viewer')
-                        .then(refSpace => result.requestHitTestSource({ space: refSpace }))
-                        .then(source => hitTestSource = source);
+                    result
+                        .requestReferenceSpace('viewer')
+                        .then((refSpace) => result.requestHitTestSource({ space: refSpace }))
+                        .then((source) => (hitTestSource = source));
                 }
             },
             requiredXrFeatures,
-            optionalXrFeatures
+            optionalXrFeatures,
         );
     }
 
-    function isIntersectingWithRobotPath (floorPose) {
+    function isIntersectingWithRobotPath(floorPose) {
         const threshold = 0.3;
         for (const view of floorPose.views) {
             for (const { robotPolyLinePoints } of Object.values(robotPolyLines)) {
                 for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
-                    const distance = distToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' })
+                    const distance = distToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' });
                     if (distance <= threshold) {
-                        return true
+                        return true;
                     }
                 }
             }
         }
-        return false
+        return false;
     }
 
-
-    import {robotTargetWaypoint} from '@src/stateStore';
-    import {getRelativeGlobalPosition} from '@core/locationTools';
+    import { robotTargetWaypoint } from '@src/stateStore';
+    import { getRelativeGlobalPosition } from '@core/locationTools';
     let reticle = null;
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
-    function myTapHandler(event) {
+    function handleSendWaypoint() {
+        if (!selectedAgentIdToSend) {
+            return;
+        }
         if (reticle == undefined || reticle == null || reticle.visible == false) {
-            console.log("UI tapped but reticle is undefined :(");
+            console.log('UI tapped but reticle is undefined :(');
             return;
         }
         if ($recentLocalisation.geopose?.position === undefined || $recentLocalisation.floorpose?.transform?.position === undefined) {
-            console.log("UI tapped but the recent localization result is empty :(");
-            return;
-        }
-
-        if (event.y > event.view.outerHeight * 0.75) {
-            // do not react to the lower 25% of the view (where the buttons are)
+            console.log('UI tapped but the recent localization result is empty :(');
             return;
         }
 
@@ -135,41 +136,40 @@
 
         // local target pose is from reticle
         let localTargetPose = {};
-        localTargetPose["position"] = reticle.position;
-        localTargetPose["quaternion"] = reticle.quaternion;
+        localTargetPose['position'] = reticle.position;
+        localTargetPose['quaternion'] = reticle.quaternion;
 
         // determine the global position of the tap and create a (global!) waypoint there
         let globalTargetPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(localTargetPose.position, localTargetPose.quaternion);
 
-
         // A set waypoint directly
-        //setWaypointObject(globalTargetPose, localTargetPose, true);
+        //setWaypointObject({ globalTargetPose, localTargetPose, active: true });
         //
         // B publish the waypoint instead and receive it through the messaging system
         const message_body = {
-            "geopose": globalTargetPose,
-            "active": true,
-            "sender": $myAgentId, // can the sender be different from the creator of the command? in some cases maybe yes.
-            "timestamp": Date.now(),//new Date().getTime(), // TODO: use the timestamp from the message,
-            "creator_id": $myAgentId,
-            "agent_id": kMyWaypointTargetAgentId // we send the command to this robot
-        }
+            geopose: globalTargetPose,
+            active: true,
+            sender: $myAgentId, // can the sender be different from the creator of the command? in some cases maybe yes.
+            timestamp: Date.now(), //new Date().getTime(), // TODO: use the timestamp from the message,
+            creator_id: $myAgentId,
+            agent_id: selectedAgentIdToSend, // we send the command to this robot
+        };
         dispatcher('broadcast', {
             event: 'waypoint_set',
             value: message_body,
-            "routing_key": "/exchange/esoptron/waypoint"
+            routing_key: '/exchange/esoptron/waypoint',
         });
     }
 
     // TODO: if there is already one, do not recreate but just move it
     // TODO: globalTargetPose can be factored out from this method
-    function setWaypointObject(globalTargetPose, localTargetPose, active=true) {
+    function setWaypointObject({ globalTargetPose, localTargetPose, active = true, playAudio = true }) {
         // remove any previous waypoint
         if (robotWaypointModel) {
             parentInstance.getRenderer().remove(robotWaypointModel);
         }
         if (active == false) {
-           return; // nothing more to do
+            return; // nothing more to do
         }
 
         // Create a waypoint object
@@ -179,7 +179,9 @@
         options.radiusBottom = 0.3;
         options.height = 2;
         const fragmentShader = colorfulFragment;
-        const scale = 0.1; const offsetY = 1; const offsetZ = 0;
+        const scale = 0.1;
+        const offsetY = 1;
+        const offsetZ = 0;
         robotWaypointModel = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
         robotWaypointModel.scale.set(scale);
         //robotWaypointModel.position.y += offsetY * scale;
@@ -187,9 +189,11 @@
 
         $robotTargetWaypoint.geopose = globalTargetPose;
         $robotTargetWaypoint.floorpose = localTargetPose;
-        console.log("WAYPOINT SET!");
+        console.log('WAYPOINT SET!');
         console.log($robotTargetWaypoint);
-        new Audio('media/audio/ding-36029.mp3').play();
+        if (playAudio) {
+            new Audio('media/audio/ding-36029.mp3').play();
+        }
     }
 
     /**
@@ -215,36 +219,35 @@
         if ('agent_geopose_updated' in events) {
             let data = events.agent_geopose_updated;
             const agent_id = data.agent_id;
-            agentIdToAgentHexColor = { ...agentIdToAgentHexColor, [agent_id]: rgbToHex(data.color) };
+            agentInfo = { ...agentInfo, [agent_id]: { hexColor: rgbToHex(data.color), agentName: data.agent_name || agent_id, agentId: agent_id } };
             const timestamp = data.timestamp;
             const agent_geopose = data.geopose;
             // We create a new spatial content record just for placing this object
-            let object_id = agent_id + '_' +  timestamp; // just a proposal
+            let object_id = agent_id + '_' + timestamp; // just a proposal
             let object_description = {
-                'version': 2,
-                'color': [normalizeColor(data.color.r), normalizeColor(data.color.g), normalizeColor(data.color.b), normalizeColor(data.color.a)],
-                'shape': PRIMITIVES.sphere,
-                'scale': [0.05, 0.05, 0.05],
-                'transparent': false,
-                'options': {}
+                version: 2,
+                color: [normalizeColor(data.color.r), normalizeColor(data.color.g), normalizeColor(data.color.b), normalizeColor(data.color.a)],
+                shape: PRIMITIVES.sphere,
+                scale: [0.05, 0.05, 0.05],
+                transparent: false,
+                options: {},
             };
             let content = {
-                "id": agent_id, // stream ID
-                "type": "geopose_stream", //high-level OSCP type
-                "title": object_id, // datapoint ID = stream ID + timestamp
-                "refs": [],
-                "geopose": agent_geopose,
-                "object_description": object_description
+                id: agent_id, // stream ID
+                type: 'geopose_stream', //high-level OSCP type
+                title: object_id, // datapoint ID = stream ID + timestamp
+                refs: [],
+                geopose: agent_geopose,
+                object_description: object_description,
             };
             let scr = {
-                "content": content,
-                "id": object_id,
-                "tenant": "IROS2022demo",
-                "type": "geopose_stream",
-                "timestamp": timestamp
+                content: content,
+                id: object_id,
+                tenant: 'IROS2022demo',
+                type: 'geopose_stream',
+                timestamp: timestamp,
             };
             parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
-
 
             // if the robot is close to the target in global coordinates, make the target disappear
             if ($robotTargetWaypoint?.geopose?.position?.lat != undefined) {
@@ -269,11 +272,11 @@
                 const agentLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(agent_geopose);
                 let agentPosition = agentLocalPose.position;
                 agentPosition[1] = 0.0; // Y UP set to zero
-                const planarDistance = waypointPosition.distance(agentPosition)
+                const planarDistance = waypointPosition.distance(agentPosition);
                 //console.log("planarDistance: " + planarDistance);
                 if (planarDistance < 0.25) {
-                ///////
-                    console.log("Wayoint hit by agent " + agent_id);
+                    ///////
+                    console.log('Wayoint hit by agent ' + agent_id);
                     new Audio('media/audio/ding-40142.mp3').play();
                     parentInstance.getRenderer().remove(robotWaypointModel);
 
@@ -285,7 +288,7 @@
         }
 
         if ('waypoint_set' in events) {
-            console.log("Global waypoint event received:");
+            console.log('Global waypoint event received:');
             const msg = events.waypoint_set;
             console.log(msg);
 
@@ -293,29 +296,34 @@
             let globalTargetPose = msg.geopose;
             let localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
 
-            setWaypointObject(globalTargetPose, localTargetPose, active);
+            if (msg.agent_id === $myAgentId || msg.agent_id === selectedAgentIdToSend) {
+                const playAudio = msg.agent_id === $myAgentId;
+                setWaypointObject({ globalTargetPose, localTargetPose, active, playAudio });
+            }
         }
 
         if ('robot_path' in events) {
             const msg = events.robot_path;
             if (robotPolyLines[msg.agent_id]) {
                 parentInstance.getRenderer().remove(robotPolyLines[msg.agent_id].robotPolyLine);
+                delete robotPolyLines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPolyLines reactively
             }
             if (robotPathClearTimeouts[msg.agent_id]) {
-                clearTimeout(robotPathClearTimeouts[msg.agent_id])
+                clearTimeout(robotPathClearTimeouts[msg.agent_id]);
+                delete robotPathClearTimeouts[msg.agent_id];
             }
             networkEvent += 1;
             const robotPolyLinePoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
-                return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z)
-            })
-            const hexColor = agentIdToAgentHexColor[msg.agent_id];
+                return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
+            });
+            const { hexColor } = agentInfo[msg.agent_id];
             const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
-            robotPolyLines = { ...robotPolyLines, [msg.agent_id]: { robotPolyLine, robotPolyLinePoints } }
+            robotPolyLines[msg.agent_id] = { robotPolyLine, robotPolyLinePoints };
             robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {
                 parentInstance.getRenderer().remove(robotPolyLines[msg.agent_id].robotPolyLine);
-                delete robotPolyLines[msg.agent_id]
-            }, 2000)
+                delete robotPolyLines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPolyLines reactively
+            }, 2000);
         }
 
         if ('reservation_status_changed' in events) {
@@ -324,19 +332,19 @@
             const chair_id = events.reservation_status_changed.chair_id;
             const reserved = events.reservation_status_changed.reserved;
             if (chair_id == undefined || reserved == undefined) {
-                console.log("WARNING: invalid chair reservation message");
+                console.log('WARNING: invalid chair reservation message');
                 return;
             }
 
             const object_description = parentInstance.getRenderer().getDynamicObjectDescription(chair_id);
             if (object_description == null) {
-                console.log("WARNING: this chair is not in this scene!");
+                console.log('WARNING: this chair is not in this scene!');
                 return;
             }
             let new_object_description = { ...object_description };
             if (reserved) {
                 new_object_description.color = [1.0, 0.0, 0.0, 0.75];
-                new_object_description.scale = [0.10, 0.10, 0.10];
+                new_object_description.scale = [0.1, 0.1, 0.1];
             } else {
                 new_object_description.color = [0.0, 1.0, 0.0, 0.75];
                 new_object_description.scale = [0.25, 0.25, 0.25];
@@ -345,7 +353,7 @@
 
             new Audio('media/audio/news-ting-6832.mp3').play();
         }
-     }
+    }
 
     function shareCameraPose(localPose) {
         // Warning: conversion from the webxr transform representation to OGL representation
@@ -354,21 +362,21 @@
 
         const timestamp = Date.now();
         const agent_id = $myAgentId;
-        const object_id = agent_id + '_' +  timestamp; // just a proposal
+        const object_id = agent_id + '_' + timestamp; // just a proposal
         const globalObjectPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(position, quaternion);
         const geoPose = {
-            "position": {
-                "lat": globalObjectPose.position.lat,
-                "lon": globalObjectPose.position.lon,
-                "h": globalObjectPose.position.h,
+            position: {
+                lat: globalObjectPose.position.lat,
+                lon: globalObjectPose.position.lon,
+                h: globalObjectPose.position.h,
             },
-            "quaternion": {
-                "x": globalObjectPose.quaternion.x,
-                "y": globalObjectPose.quaternion.y,
-                "z": globalObjectPose.quaternion.z,
-                "w": globalObjectPose.quaternion.w
-            }
-        }
+            quaternion: {
+                x: globalObjectPose.quaternion.x,
+                y: globalObjectPose.quaternion.y,
+                z: globalObjectPose.quaternion.z,
+                w: globalObjectPose.quaternion.w,
+            },
+        };
 
         // // BEGIN Sparcl multiplayer demo
         // const object_description = {
@@ -408,22 +416,21 @@
         // });
         // // END Sparcl multiplayer demo
 
-
         // BEGIN dtvis demo
         const message_body = {
-            'agent_id': $myAgentId,
-            'avatar': {
-                'name': $myAgentName,
-                'color': { 'r': $myAgentColor.r, 'g': $myAgentColor.g, 'b': $myAgentColor.b, 'a': $myAgentColor.a }
+            agent_id: $myAgentId,
+            avatar: {
+                name: $myAgentName,
+                color: { r: $myAgentColor.r, g: $myAgentColor.g, b: $myAgentColor.b, a: $myAgentColor.a },
             },
-            'geopose': geoPose,
-            'timestamp': timestamp
+            geopose: geoPose,
+            timestamp: timestamp,
         };
 
         dispatcher('broadcast', {
             event: 'publish_camera_pose',
             value: message_body,
-            "routing_key": "/exchange/esoptron/geopose_update." + String($myAgentId)
+            routing_key: '/exchange/esoptron/geopose_update.' + String($myAgentId),
         });
         // END dtvis demo
     }
@@ -446,20 +453,19 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
-
         if (useReticle && !hitTestSource) {
-            console.log("HitTestSource is invalid :(");
+            console.log('HitTestSource is invalid :(');
             return;
         }
 
-        checkGLError(myGl, "before creating reticle");
+        checkGLError(myGl, 'before creating reticle');
         if (useReticle && !reticle) {
             //reticle = parentInstance.getRenderer().addReticle();
             //reticle = parentInstance.getRenderer().addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/Duck.glb');
             //reticle = parentInstance.getRenderer().addPlaceholder([], {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1});
             reticle = parentInstance.getRenderer().addMarkerObject();
         }
-        checkGLError(myGl, "after creating reticle");
+        checkGLError(myGl, 'after creating reticle');
         reticle.visible = false;
 
         const hitTestResults = frame.getHitTestResults(hitTestSource);
@@ -483,7 +489,7 @@
                 // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
             }
         }
-        throttledShowAlert(floorPose)
+        throttledShowAlert(floorPose);
 
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
@@ -510,28 +516,24 @@
         }
         parentInstance.onXrSessionEnded();
     }
-
 </script>
 
-<Parent
-    bind:this={parentInstance}
-    on:arSessionEnded
-    on:broadcast>
-
-    <svelte:fragment slot="overlay"
-        let:isLocalizing
-        let:isLocalized
-        let:isLocalisationDone
-        let:firstPoseReceived
-        let:receivedContentTitles
-        >
+<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived let:receivedContentTitles>
         <ArCloudOverlay
-            networkEvent={networkEvent}
-            hasPose="{firstPoseReceived}"
-            isLocalizing="{isLocalizing}"
-            isLocalized="{isLocalized}"
-            receivedContentTitles="{receivedContentTitles}"
+            {networkEvent}
+            {agentInfo}
+            hasPose={firstPoseReceived}
+            {isLocalizing}
+            {isLocalized}
+            {receivedContentTitles}
             on:startLocalisation={() => parentInstance.startLocalisation()}
+            on:agentSelected={(event) => {
+                selectedAgentIdToSend = event.detail.agentId;
+            }}
+            on:sendWaypoint={() => {
+                handleSendWaypoint();
+            }}
             on:relocalize={() => {
                 robotPolyLines = {};
                 parentInstance.relocalize();

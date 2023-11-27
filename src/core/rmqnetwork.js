@@ -43,111 +43,114 @@ export function connectWithReceiveCallback(onReceiveCallback) {
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
     import('stompjs').then((stompModule) => {
-        stomp = stompModule.default;
-        const rmq_url = 'wss://' + hostname + ':' + rmqport + '/ws';
-        console.log('Connecting to RMQ ' + rmq_url);
-        rmqClient = stomp.client(rmq_url);
-        rmqClient.debug = function (str) {
-            // for debugging, we can print all received messages to the console (or even to a separate HTML view)
-            //console.log(str + "\n");
+        const connection = () => {
+            stomp = stompModule.default;
+            const rmq_url = 'wss://' + hostname + ':' + rmqport + '/ws';
+            console.log('Connecting to RMQ ' + rmq_url);
+            rmqClient = stomp.client(rmq_url);
+            rmqClient.debug = function (str) {
+                // for debugging, we can print all received messages to the console (or even to a separate HTML view)
+                //console.log(str + "\n");
+            };
+            let on_connect = function (x) {
+                console.log('RMQ connection successful!');
+
+                // now we subscribe to topics
+                // Note: Stomp subscribe for a destination of the form /exchange/<name>[/<pattern>] does 3 things:
+                // 1. creates an exclusive, auto-delete queue on <name> exchange;
+                // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
+                // 3. registers a subscription against the queue, for the current STOMP session.
+
+                console.log('Subscribing to topic ' + rmq_topic_geopose_update);
+                rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
+                    const msg = JSON.parse(d.body);
+                    //console.log(msg);
+
+                    const agentId = msg.agent_id || '';
+                    if (agentId == '' || agentId == get(myAgentId)) {
+                        return;
+                    }
+
+                    const timestamp = msg.timestamp || Date.now();
+                    const agentGeopose = msg.geopose;
+                    const agentName = msg.avatar.name || '';
+                    const data = {
+                        agent_geopose_updated: {
+                            agent_id: agentId,
+                            agent_name: agentName,
+                            geopose: agentGeopose,
+                            color: msg.avatar.color,
+                            timestamp: timestamp,
+                        },
+                    };
+                    throttledUpdateFunction(data);
+                });
+
+                console.log('Subscribing to topic ' + rmq_topic_waypoint);
+                rmqClient.subscribe(rmq_topic_waypoint, function (d) {
+                    const msg = JSON.parse(d.body);
+                    const waypointGeopose = msg.geopose || null;
+                    if (waypointGeopose == null) {
+                        return;
+                    }
+                    const agent_id = msg.agent_id || 'unknown'; // target agent
+                    const creator_id = msg.creator_id || 'unknown';
+                    const timestamp = msg.timestamp || 0;
+                    const color = msg.color || [1.0, 1.0, 0.0];
+                    const data = {
+                        waypoint_set: {
+                            agent_id: agent_id,
+                            creator_id: creator_id,
+                            geopose: waypointGeopose,
+                            color: color,
+                            timestamp: timestamp,
+                        },
+                    };
+                    updateFunction(data);
+                });
+
+                console.log('Subscribing to topic ' + rmq_topic_robot_path);
+                rmqClient.subscribe(rmq_topic_robot_path, function (d) {
+                    const msg = JSON.parse(d.body);
+                    const waypointGeoposes = msg.geoposes || null;
+                    const agent_id = msg.agent_id || 'unknown'; // target agent
+                    const creator_id = msg.creator_id || 'unknown';
+                    const timestamp = msg.timestamp || 0;
+                    const color = msg.color || [1.0, 1.0, 0.0];
+                    const data = {
+                        robot_path: {
+                            agent_id: agent_id,
+                            creator_id: creator_id,
+                            geoposes: waypointGeoposes,
+                            color: color,
+                            timestamp: timestamp,
+                        },
+                    };
+                    updateFunction(data);
+                });
+
+                console.log('Subscribing to topic ' + rmq_topic_chair_reservation);
+                rmqClient.subscribe(rmq_topic_chair_reservation, function (d) {
+                    const msg = JSON.parse(d.body);
+                    console.log(msg);
+                    const data = {
+                        reservation_status_changed: {
+                            chair_id: msg.chair_id,
+                            reserved: msg.reserved,
+                        },
+                    };
+                    updateFunction(data);
+                });
+            };
+
+            let on_error = function (err) {
+                console.log(`Error: rabbitmq connection disconnected, reason: ${err}. Trying to reconnect.`);
+                setTimeout(connection, 1000);
+            };
+
+            rmqClient.connect(rmquser, rmqpassword, on_connect, on_error, '/');
         };
-
-        let on_connect = function (x) {
-            console.log('RMQ connection successful!');
-
-            // now we subscribe to topics
-            // Note: Stomp subscribe for a destination of the form /exchange/<name>[/<pattern>] does 3 things:
-            // 1. creates an exclusive, auto-delete queue on <name> exchange;
-            // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
-            // 3. registers a subscription against the queue, for the current STOMP session.
-
-            console.log('Subscribing to topic ' + rmq_topic_geopose_update);
-            rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
-                const msg = JSON.parse(d.body);
-                //console.log(msg);
-
-                const agentId = msg.agent_id || '';
-                if (agentId == '' || agentId == get(myAgentId)) {
-                    return;
-                }
-
-                const timestamp = msg.timestamp || Date.now();
-                const agentGeopose = msg.geopose;
-                const agentName = msg.avatar.name || '';
-                const data = {
-                    agent_geopose_updated: {
-                        agent_id: agentId,
-                        agent_name: agentName,
-                        geopose: agentGeopose,
-                        color: msg.avatar.color,
-                        timestamp: timestamp,
-                    },
-                };
-                throttledUpdateFunction(data);
-            });
-
-            console.log('Subscribing to topic ' + rmq_topic_waypoint);
-            rmqClient.subscribe(rmq_topic_waypoint, function (d) {
-                const msg = JSON.parse(d.body);
-                const waypointGeopose = msg.geopose || null;
-                if (waypointGeopose == null) {
-                    return;
-                }
-                const agent_id = msg.agent_id || 'unknown'; // target agent
-                const creator_id = msg.creator_id || 'unknown';
-                const timestamp = msg.timestamp || 0;
-                const color = msg.color || [1.0, 1.0, 0.0];
-                const data = {
-                    waypoint_set: {
-                        agent_id: agent_id,
-                        creator_id: creator_id,
-                        geopose: waypointGeopose,
-                        color: color,
-                        timestamp: timestamp,
-                    },
-                };
-                updateFunction(data);
-            });
-
-            console.log('Subscribing to topic ' + rmq_topic_robot_path);
-            rmqClient.subscribe(rmq_topic_robot_path, function (d) {
-                const msg = JSON.parse(d.body);
-                const waypointGeoposes = msg.geoposes || null;
-                const agent_id = msg.agent_id || 'unknown'; // target agent
-                const creator_id = msg.creator_id || 'unknown';
-                const timestamp = msg.timestamp || 0;
-                const color = msg.color || [1.0, 1.0, 0.0];
-                const data = {
-                    robot_path: {
-                        agent_id: agent_id,
-                        creator_id: creator_id,
-                        geoposes: waypointGeoposes,
-                        color: color,
-                        timestamp: timestamp,
-                    },
-                };
-                updateFunction(data);
-            });
-
-            console.log('Subscribing to topic ' + rmq_topic_chair_reservation);
-            rmqClient.subscribe(rmq_topic_chair_reservation, function (d) {
-                const msg = JSON.parse(d.body);
-                console.log(msg);
-                const data = {
-                    reservation_status_changed: {
-                        chair_id: msg.chair_id,
-                        reserved: msg.reserved,
-                    },
-                };
-                updateFunction(data);
-            });
-        };
-
-        let on_error = function () {
-            console.log('error');
-        };
-
-        rmqClient.connect(rmquser, rmqpassword, on_connect, on_error, '/');
+        connection();
     });
 }
 
