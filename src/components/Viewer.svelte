@@ -553,9 +553,6 @@
                     }
                     const url = content_definitions["url"];
                     //const url = record.content.refs[0].url;
-
-                    // TODO: as we use local-floor coordinate space, everything is shifted vertically by the user height.
-                    position.y = position.y + 1.0; // 1 m shift
                     tdEngine.addPointCloud(url, position, orientation)
                     break;
                 }
