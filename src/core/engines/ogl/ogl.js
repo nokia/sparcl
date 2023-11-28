@@ -53,7 +53,10 @@ export default class ogl {
 
         scene = new Transform();
 
-        this.setupEnvironment(gl);
+        camera = new Camera(gl);
+        camera.position.set(0, 0, 0);
+
+        this.initScene();
 
         window.addEventListener('resize', () => this.resize(gl), false);
         this.resize();
@@ -64,11 +67,13 @@ export default class ogl {
     }
 
     /**
-     * Set up the 3D environment as required according to the current real environment.*
+     * Initialize the virtual environment
      */
-    setupEnvironment(gl) {
-        camera = new Camera(gl);
-        camera.position.set(0, 0, 0);
+    initScene() {
+        if (!gl) {
+            console.log("GL is not initilized yet!");
+            return;
+        }
 
         // Visualize axes
         axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
@@ -583,6 +588,8 @@ export default class ogl {
             scene.removeChild(child);
             child = null;
         }
+
+        this.initScene(); // but do any neccessary minimal environment setup
     }
 
     /**
