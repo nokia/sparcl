@@ -195,6 +195,16 @@ export function rgbToHex(rgbObj) {
     return '#000000';
 }
 
+export function normalizeColor(color) {
+    if (color == null) {
+        return 1.0;
+    }
+    if (color > 1.0) {
+        return color / 255;
+    }
+    return color;
+};
+
 // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = undefined }) {
     const coordinates = ['x', 'y', 'z'];
