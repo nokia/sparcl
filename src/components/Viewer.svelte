@@ -44,8 +44,10 @@
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
-    let experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, hasLostTracking = true;
+    let experienceLoaded = false;
+    let experienceMatrix = null;
+    let firstPoseReceived = false;
+    let hasLostTracking = true;
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -143,7 +145,7 @@
 
             handleExternalExperience(view);
 
-            // Currently necessary to keep camera image capture alive.
+            // Currently it is necessary to capture the camera image at every frame in order to keep the camera-access feature alive.
             let cameraTexture = null;
             let cameraIntrinsics = null;
             let cameraViewport = null;

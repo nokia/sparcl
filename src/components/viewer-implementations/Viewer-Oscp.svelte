@@ -453,34 +453,37 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
-        if (useReticle && !hitTestSource) {
-            console.log('HitTestSource is invalid :(');
-            return;
-        }
+        if (useReticle) {
+            checkGLError(myGl, 'before creating reticle');
+            if (reticle == undefined || reticle == null) {
+                //reticle = parentInstance.getRenderer().addReticle();
+                //reticle = parentInstance.getRenderer().addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/Duck.glb');
+                //reticle = parentInstance.getRenderer().addPlaceholder([], {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1});
+                reticle = parentInstance.getRenderer().addMarkerObject();
+            }
+            checkGLError(myGl, 'after creating reticle');
 
-        checkGLError(myGl, 'before creating reticle');
-        if (useReticle && !reticle) {
-            //reticle = parentInstance.getRenderer().addReticle();
-            //reticle = parentInstance.getRenderer().addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/Duck.glb');
-            //reticle = parentInstance.getRenderer().addPlaceholder([], {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1});
-            reticle = parentInstance.getRenderer().addMarkerObject();
-        }
-        checkGLError(myGl, 'after creating reticle');
-        reticle.visible = false;
+            if(!hitTestSource) {
+                console.log('HitTestSource is invalid! Cannot use reticle');
+                reticle.visible = false;
+            } else {
+                const hitTestResults = frame.getHitTestResults(hitTestSource);
+                if (hitTestResults.length > 0) {
+                    const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                    const position = reticlePose.transform.position;
+                    const orientation = reticlePose.transform.orientation;
+                    parentInstance.getRenderer().updateReticlePose(reticle, position, orientation);
+                    reticle.visible = true;
+                } else {
+                    reticle.visible = false;
+                }
+            }
 
-        const hitTestResults = frame.getHitTestResults(hitTestSource);
-        if (hitTestResults.length > 0) {
-            const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-            const position = reticlePose.transform.position;
-            const orientation = reticlePose.transform.orientation;
-            parentInstance.getRenderer().updateReticlePose(reticle, position, orientation);
-            reticle.visible = true;
-        }
-
-        // hide if there was no localization yet
-        if ($recentLocalisation.geopose?.position === undefined) {
-            reticle.visible = false;
-        }
+            // hide if there was no localization yet
+            if ($recentLocalisation.geopose?.position === undefined) {
+                reticle.visible = false;
+            }
+        } // useReticle
 
         if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
             try {
@@ -489,8 +492,11 @@
                 // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
             }
         }
+
+        // Check whether the user is too close to a robot path
         throttledShowAlert(floorPose);
 
+        // Call parent Viewer's onXrFrameUpdate which updates performs localization and rendering
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
 
@@ -536,6 +542,7 @@
             }}
             on:relocalize={() => {
                 robotPolyLines = {};
+                reticle = null;
                 parentInstance.relocalize();
             }}
         />
