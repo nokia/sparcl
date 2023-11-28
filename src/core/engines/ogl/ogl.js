@@ -462,14 +462,14 @@ export default class ogl {
                 const planeGeometry = new Plane(gl, {
                     width: width,
                     height: height
-                });
+                }); // by default, the normal vector of the plane is axis Z
                 const plane = new Mesh(gl, {
                     geometry: planeGeometry,
                     program: logoProgram,
                     frustumCulled: false
                 });
                 plane.position = position;
-                plane.orientation = orientation;
+                plane.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
                 plane.setParent(scene);
             });
     }

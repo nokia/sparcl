@@ -414,14 +414,13 @@
 
             response.forEach(record => {
                 // TODO: validate here whether we received a proper SCR
-
-                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard
-                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
-
                 // TODO: we can check here whether we have received this content already and break if yes.
+
+                console.log("Content");
+                console.log(" -id: " + record.content.id);
+                console.log(" -type: " + record.content.type);
+
                 // TODO: first save the records and then start to instantiate the objects
-
-
                 if (record.content.type === "placeholder" ||
                         record.content.type === "3D" ||
                         record.content.type === "MODEL_3D" ||
@@ -429,6 +428,18 @@
                     // only list the 3D models and not ephemeral objects nor stream objects
                     $receivedScrs.push(record);
                     $context.receivedContentTitles.push(record.content.title);
+                }
+
+                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
+                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+
+                const d_entries = record.content.definitions.entries();
+                let content_definitions = {};
+                console.log(" -definitions:")
+                for (let d_entry of d_entries) {
+                    const d = d_entry[1];
+                    console.log("  -" + d.type + ": " + d.value);
+                    content_definitions[d.type] = d.value;
                 }
 
                 // TODO: this method could handle any type of content:
@@ -541,38 +552,40 @@
                 }
                 /*
                 case "POINTCLOUD": {
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    let position = localObjectPose.position;
-                    let orientation = localObjectPose.quaternion;
-                    console.log(record.content)
-                    const d_entries = record.content.definitions.entries();
-                    let content_definitions = {}
-                    for (let d_entry of d_entries) {
-                        const d = d_entry[1];
-                        console.log(d);
-                        content_definitions[d.type] = d.value;
+                    const globalObjectPose = record.content.geopose;
+                    const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    const position = localObjectPose.position;
+                    const orientation = localObjectPose.quaternion;
+                    let url = "";
+                    if (content_definitions["url"] != undefined) {
+                        url = content_definitions["url"];
+                    } else {
+                        url = record.content.refs[0].url;
                     }
-                    const url = content_definitions["url"];
-                    //const url = record.content.refs[0].url;
                     tdEngine.addPointCloud(url, position, orientation)
                     break;
                 }
                 */
                 case "ICON": {
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    const url = record.content.refs[0].url;
-                    //const url = record.content.definitions["url"];
-                    const width = 1.0;
-                    if (record.content.definitions["width"] != undefined) {
-                        width = record.content.definitions["width"];
+                    const globalObjectPose = record.content.geopose;
+                    const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    const localPosition = localObjectPose.position;
+                    const localQuaternion = localObjectPose.quaternion;
+                    let url = "";
+                    if (content_definitions["url"] != undefined) {
+                        url = content_definitions["url"];
+                    } else {
+                        url = record.content.refs[0].url;
                     }
-                    const height = 1.0;
-                    if (record.content.definitions["height"] != undefined) {
-                        height = record.content.definitions["height"];
+                    let width = 1.0;
+                    if (content_definitions["width"] != undefined) {
+                        width = content_definitions["width"];
                     }
-                    tdEngine.addLogoObject(url, localObjectPose.position, localObjectPose.orientation, width, height);
+                    let height = 1.0;
+                    if (content_definitions["height"] != undefined) {
+                        height = content_definitions["height"];
+                    }
+                    tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
                     break;
                 }
                 default: {
