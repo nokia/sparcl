@@ -26,7 +26,6 @@
     let hitTestSource = null;
     let reticle = null;
 
-    let networkEvent = 0;
     let agentInfo = {};
     let robotPathPolylines = {};
     let robotPathClearTimeouts = {};
@@ -279,7 +278,6 @@
                 clearTimeout(robotPathClearTimeouts[msg.agent_id]);
                 delete robotPathClearTimeouts[msg.agent_id];
             }
-            networkEvent += 1;
             const robotPolyLinePoints = msg.geoposes.map((geopose) => {
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
@@ -494,7 +492,6 @@
 <Parent bind:this={parentInstance} on:arSessionEnded on:broadcast>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived let:receivedContentTitles>
         <ArCloudOverlay
-            {networkEvent}
             {agentInfo}
             hasPose={firstPoseReceived}
             {isLocalizing}
