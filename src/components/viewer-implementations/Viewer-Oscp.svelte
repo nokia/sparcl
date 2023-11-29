@@ -245,8 +245,8 @@
                 if (planarDistance < 0.25) {
                     console.log('Waypoint hit by agent ' + agent_id);
                     new Audio('media/audio/ding-40142.mp3').play();
-                    parentInstance.getRenderer().remove(robotTargetWaypoints[targetAgentId].model);
-                    delete robotTargetWaypoints[targetAgentId];
+                    parentInstance.getRenderer().remove(robotTargetWaypoints[agent_id].model);
+                    delete robotTargetWaypoints[agent_id];
                 }
             }
         }
