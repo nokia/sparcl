@@ -233,8 +233,8 @@
             parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
 
             // if the robot is close to the target in global coordinates, make the target disappear
-            if (robotTargetWaypoints[agent_id]?.geopose?.position?.lat != undefined) {
-                const waypointLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(robotTargetWaypoints[targetAgentId].geopose);
+            if (robotTargetWaypoints[agent_id]?.geopose?.position?.lat != undefined) { // there is a waypoint known for this agent
+                const waypointLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(robotTargetWaypoints[agent_id].geopose);
                 let waypointPosition = waypointLocalPose.position;
                 waypointPosition[1] = 0.0; // Y UP set to zero
                 const agentLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(agent_geopose);
@@ -284,7 +284,7 @@
                 const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
             });
-            const { hexColor } = agentInfo[msg.agent_id];
+            const hexColor = agentInfo[msg.agent_id].hexColor;
             const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
             robotPathPolylines[msg.agent_id] = { robotPolyLine, robotPolyLinePoints };
             robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {

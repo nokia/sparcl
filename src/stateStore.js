@@ -443,7 +443,7 @@ myAgentName.subscribe((value) => {
     }
 });
 
-const getRandomRgbValue = () => {
+const getRandomColorValue = () => {
     return Math.floor(Math.random() * 256);
 };
 
@@ -452,7 +452,7 @@ const getRandomRgbValue = () => {
  *
  * @type {Writable<{r: number, g: number, b: number, a: number}>}
  */
-const storedMyAgentColor = localStorage.getItem('myAgentColor') ? JSON.parse(localStorage.getItem('myAgentColor')) : { r: getRandomRgbValue(), g: getRandomRgbValue(), b: getRandomRgbValue(), a: 1 };
+const storedMyAgentColor = localStorage.getItem('myAgentColor') ? JSON.parse(localStorage.getItem('myAgentColor')) : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
 export const myAgentColor = writable(storedMyAgentColor);
 myAgentColor.subscribe((value) => {
     localStorage.setItem('myAgentColor', JSON.stringify(value));

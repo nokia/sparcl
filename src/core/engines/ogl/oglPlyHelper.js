@@ -26,7 +26,6 @@ export class MyPLYLoader {
         // Note: this loader can also load point clouds without triangles
         const options = {};
         const data = await load(url, PLYLoader, options);
-        console.log(data);
 
         let attributes = {};
         if (data.attributes.POSITION != undefined) {

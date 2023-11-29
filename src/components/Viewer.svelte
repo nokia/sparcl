@@ -416,9 +416,10 @@
                 // TODO: validate here whether we received a proper SCR
                 // TODO: we can check here whether we have received this content already and break if yes.
 
-                console.log("Content");
-                console.log(" -id: " + record.content.id);
-                console.log(" -type: " + record.content.type);
+                // DEBUG
+                //console.log("Content");
+                //console.log(" -id: " + record.content.id);
+                //console.log(" -type: " + record.content.type);
 
                 // TODO: first save the records and then start to instantiate the objects
                 if (record.content.type === "placeholder" ||
@@ -433,13 +434,16 @@
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
 
-                const d_entries = record.content.definitions.entries();
+
                 let content_definitions = {};
-                console.log(" -definitions:")
-                for (let d_entry of d_entries) {
-                    const d = d_entry[1];
-                    console.log("  -" + d.type + ": " + d.value);
-                    content_definitions[d.type] = d.value;
+                if (record.content.definitions != undefined) {
+                    const d_entries = record.content.definitions.entries();
+                    //console.log(" -definitions:")
+                    for (let d_entry of d_entries) {
+                        const d = d_entry[1];
+                        //console.log("  -" + d.type + ": " + d.value);
+                        content_definitions[d.type] = d.value;
+                    }
                 }
 
                 // TODO: this method could handle any type of content:

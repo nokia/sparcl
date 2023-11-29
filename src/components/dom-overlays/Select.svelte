@@ -5,7 +5,6 @@
     export let value;
     $: {
         value = options[index];
-        console.log('value', value);
     }
 </script>
 
