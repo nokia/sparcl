@@ -18,7 +18,8 @@
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
         allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
         creatorModeSettings, experimentModeSettings,
-        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, myAgentColor, myAgentName
+        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, debug_enablePointCloudContents,
+        myAgentColor, myAgentName
     } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -474,6 +475,11 @@
     <div>
         <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
         <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
+    </div>
+
+    <div>
+        <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
+        <label for="enablePointCloudContents">Enable point cloud contents</label>
     </div>
 </details>
 

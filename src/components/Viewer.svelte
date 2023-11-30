@@ -24,7 +24,7 @@
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
     import {arMode, availableContentServices,
-        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage,
+        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, debug_enablePointCloudContents,
         initialLocation, receivedScrs, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
     import {ARMODES, wait} from "@core/common";
@@ -554,22 +554,26 @@
                     // if it exists, we retrieve the corresponding model and manipulate it
                     break;
                 }
-                /*
+
                 case "POINTCLOUD": {
-                    const globalObjectPose = record.content.geopose;
-                    const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    const position = localObjectPose.position;
-                    const orientation = localObjectPose.quaternion;
-                    let url = "";
-                    if (content_definitions["url"] != undefined) {
-                        url = content_definitions["url"];
+                    if ($debug_enablePointCloudContents) {
+                        const globalObjectPose = record.content.geopose;
+                        const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        const position = localObjectPose.position;
+                        const orientation = localObjectPose.quaternion;
+                        let url = "";
+                        if (content_definitions["url"] != undefined) {
+                            url = content_definitions["url"];
+                        } else {
+                            url = record.content.refs[0].url;
+                        }
+                        tdEngine.addPointCloud(url, position, orientation)
                     } else {
-                        url = record.content.refs[0].url;
+                        console.log("A POINTCLOUD content was received but this type is disabled");
                     }
-                    tdEngine.addPointCloud(url, position, orientation)
                     break;
                 }
-                */
+
                 case "ICON": {
                     const globalObjectPose = record.content.geopose;
                     const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
