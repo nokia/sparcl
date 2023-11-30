@@ -298,7 +298,9 @@
     header {
         width: 100vw;
         height: 110px;
-
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 63px;
 
         background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231F20 98%) 0 0 no-repeat padding-box;
@@ -341,12 +343,10 @@
         background-color: white;
     }
 
-    #logo {
-        position: absolute;
-        top: 35px;
-        left: 204px;
-        width: 158px;
-        height: 40px;
+    .logo {
+        width: 138px;
+        padding-left: 20px;
+        padding-right: 20px;
         opacity: 1;
     }
 
@@ -362,7 +362,8 @@
 
 
 <header>
-    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
+    <img class="logo" id="nokia-logo" alt="Nokia logo" src="/media/Nokia-logo-white.png">
+    <img class="logo" id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 
 <main>
