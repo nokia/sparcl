@@ -113,7 +113,7 @@ export function connectWithReceiveCallback(onReceiveCallback) {
                 rmqClient.subscribe(rmq_topic_robot_path, function (d) {
                     const msg = JSON.parse(d.body);
                     const waypointGeoposes = msg.geoposes || null;
-                    const agent_id = msg.agent_id || 'unknown'; // target agent
+                    const agent_id = msg.agent_id || 'unknown';
                     const creator_id = msg.creator_id || 'unknown';
                     const timestamp = msg.timestamp || 0;
                     const color = msg.color || [1.0, 1.0, 0.0];
