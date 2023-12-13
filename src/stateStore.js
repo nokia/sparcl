@@ -236,6 +236,36 @@ export const availableP2pServices = derived(
 );
 
 /**
+ * Derived store of ssr store for easy access of all contained p2pmaster services.
+ *
+ * @type {Readable<SERVICE[]>}
+ */
+export const availableMessageBrokerServices = derived(
+    ssr,
+    ($ssr, set) => {
+        const messageBrokerServices = [];
+        for (const record of $ssr) {
+            for (const service of record.services) {
+                if (service.type === 'message-broker') {
+                    const urlParsed = new URL(service.url);
+                    urlParsed.protocol = 'wss://'; // HACK: url comes in with https:// protocol, but this needs to be wss://
+                    messageBrokerServices.push({ ...service, guid: `${record.id}-${service.id}`, url: urlParsed.href });
+                }
+            }
+        }
+        set(messageBrokerServices);
+        // If none selected yet, set the first available as selected
+        // TODO: Make sure that stored selected service is still valid
+        if (get(selectedP2pService) === 'none' && messageBrokerServices.length > 0) {
+            selectedP2pService.set(messageBrokerServices[0]);
+        }
+    },
+    []
+);
+
+export const isRabbitmqConnectionTestSuccessful = writable(null);
+
+/**
  * The one of the returned GeoPose service to be used for localisation.
  *
  * @type {Writable<>}
@@ -456,4 +486,26 @@ const storedMyAgentColor = localStorage.getItem('myAgentColor') ? JSON.parse(loc
 export const myAgentColor = writable(storedMyAgentColor);
 myAgentColor.subscribe((value) => {
     localStorage.setItem('myAgentColor', JSON.stringify(value));
+});
+const storedAllowMessageBroker = localStorage.getItem('allowMessageBroker') === 'true';
+export const allowMessageBroker = writable(storedAllowMessageBroker);
+allowMessageBroker.subscribe((value) => {
+    localStorage.setItem('allowMessageBroker', value === true ? 'true' : 'false');
+});
+
+const storedMessageBrokerAuth = JSON.parse(localStorage.getItem('messageBrokerAuth') || '{}');
+export const messageBrokerAuth = writable(storedMessageBrokerAuth);
+messageBrokerAuth.subscribe((value) => {
+    localStorage.setItem('messageBrokerAuth', JSON.stringify(value));
+});
+
+const storedSelectedMessageBroker = JSON.parse(localStorage.getItem('selectedMessageBrokerService') || '{}');
+export const selectedMessageBrokerService = writable(storedSelectedMessageBroker);
+selectedMessageBrokerService.subscribe((value) => {
+    localStorage.setItem('selectedMessageBrokerService', JSON.stringify(value));
+    const currentMessageBrokerAuth = get(messageBrokerAuth);
+    if (value.guid != null) {
+        // initialize object
+        messageBrokerAuth.set({ [value.guid]: {}, ...currentMessageBrokerAuth });
+    }
 });

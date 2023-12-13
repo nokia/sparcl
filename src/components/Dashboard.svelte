@@ -9,7 +9,7 @@
 -->
 <script>
     import ColorPicker from 'svelte-awesome-color-picker';
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
 
     import { supportedCountries } from '@oarc/ssd-access';
 
@@ -17,6 +17,7 @@
         showDashboard,
         initialLocation,
         availableGeoPoseServices,
+        availableMessageBrokerServices,
         availableContentServices,
         availableP2pServices,
         selectedGeoPoseService,
@@ -43,11 +44,18 @@
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
     import Selector from '@experiments/Selector';
+    import { testRmqConnection } from '@src/core/rmqnetwork';
+    import Select from './dom-overlays/Select.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
     let experimentDetail = null;
+    let rmqTestPromise;
+    onMount(() => {
+        if ($selectedMessageBrokerService.url && $messageBrokerAuth[$selectedMessageBrokerService?.guid].username != null)
+            rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
+    });
 
     function handleContentServiceSelection(event, service) {
         if (!$selectedContentServices[service.id]) {
@@ -62,7 +70,7 @@
     }
 </script>
 
-<button on:click={() => dispatch('okClicked')}>Go immersive</button>
+<button id="go-immersive-button" on:click={() => dispatch('okClicked')}>Go immersive</button>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
     <summary>Application state</summary>
@@ -247,6 +255,48 @@
             <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
         {/await}
     {/if}
+    {#if $availableMessageBrokerServices.length > 0}
+        <dl>
+            <dt><label for="message-broker-server">Message Broker Services</label></dt>
+            <div>
+                <input id="allowMessageBroker" type="checkbox" bind:checked={$allowMessageBroker} />
+                <label for="allowMessageBroker">Connect to a message broker</label>
+            </div>
+            {#if $allowMessageBroker}
+                <dd class="select">
+                    <Select bind:value={$selectedMessageBrokerService} displayFunc={(option) => option.description} options={Object.values($availableMessageBrokerServices)}></Select>
+                </dd>
+                {#if $selectedMessageBrokerService?.properties?.find((prop) => prop.type === 'authentication' && prop.value === 'password')}
+                    <form>
+                        <div>
+                            <label style="display: inline-block; min-width: 100px;" for="username">username:</label>
+                            <input type="text" bind:value={$messageBrokerAuth[$selectedMessageBrokerService?.guid].username} name="username" />
+                        </div>
+                        <div>
+                            <label style="display: inline-block; min-width: 100px;" for="password">password:</label>
+                            <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService?.guid].password} name="password" />
+                        </div>
+                    </form>
+                    <div class="center" style="padding-top: 1rem;">
+                        <button
+                            id="test-rmq-auth-button"
+                            on:click={() => (rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] }))}
+                            >Test Authentication</button
+                        >
+                    </div>
+                    {#if rmqTestPromise != null}
+                        {#await rmqTestPromise}
+                            <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
+                        {:then}
+                            <p class="center" style="color: green">Authentication successful</p>
+                        {:catch error}
+                            <p class="center" style="color: red">Authentication unsuccessful {error}</p>
+                        {/await}
+                    {/if}
+                {/if}
+            {/if}
+        </dl>
+    {/if}
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
@@ -288,7 +338,6 @@
         </pre>
         <p class="note">Change active after reload</p>
     </dl>
-
     <dl>
         <dt>Connection status</dt>
         <dd>{$p2pNetworkState}</dd>
@@ -335,7 +384,7 @@
         margin-bottom: 0;
     }
 
-    button {
+    #go-immersive-button {
         width: 100%;
         height: 50px;
 
@@ -346,6 +395,27 @@
         font-size: 25px;
         letter-spacing: 0;
 
+        background-color: white;
+    }
+
+    .center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .center-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    #test-rmq-auth-button {
+        border: 2px solid var(--theme-color);
+        border-radius: 0.5rem;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
         background-color: white;
     }
 
@@ -504,5 +574,9 @@
 
     .serviceurl {
         font-size: 8px;
+    }
+
+    .spinner {
+        height: 50px;
     }
 </style>

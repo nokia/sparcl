@@ -20,7 +20,7 @@
     import Selector from '@experiments/Selector';
 
     import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
-        initialLocation, isLocationAccessAllowed, selectedP2pService, showDashboard, ssr} from './stateStore';
+        initialLocation, isLocationAccessAllowed, selectedP2pService, showDashboard, ssr, allowMessageBroker, selectedMessageBrokerService, messageBrokerAuth} from './stateStore';
     import {ARMODES} from "./core/common";
 
     import {logToElement} from '@src/core/devTools';
@@ -39,6 +39,7 @@
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
+    let rmq;
 
 
     /**
@@ -243,16 +244,21 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        Promise.all([
-                import('@core/engines/ogl/ogl'),
-                import('@core/engines/webxr'),
-                viewerImplementation])
-            .then(values => {
-                viewer = values[2]?.default;
-                tick().then(() => {
-                    viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
-                });
+        const values = await Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]);
+        viewer = values[2]?.default;
+        await tick();
+        if ($allowMessageBroker) {
+            if (!rmq) {
+                rmq = await import('@src/core/rmqnetwork');
+            }
+            rmq.connectWithReceiveCallback({
+                updateFunction: (data) => viewerInstance?.onNetworkEvent(data),
+                url: $selectedMessageBrokerService.url,
+                password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
+                username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
             });
+        }
+        viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
     }
 
     /**
@@ -265,6 +271,7 @@
         shouldShowDashboard = $showDashboard;
 
         viewer = null;
+        rmq?.rmqDisconnect()
     }
 
     /**
