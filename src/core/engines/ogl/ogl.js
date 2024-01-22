@@ -122,7 +122,7 @@ export default class ogl {
             points,
             uniforms: {
                 uColor: { value: new Color(hexColor) },
-                uThickness: { value: 3 },
+                uThickness: { value: 5 },
             },
         });
         const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });

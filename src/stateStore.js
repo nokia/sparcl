@@ -388,6 +388,17 @@ debug_useGeolocationSensors.subscribe((value) => {
 });
 
 /**
+ * Enable/disable point cloud contents (usually large files)
+ *
+ * @type {Writable<boolean>}
+ */
+const storedDebug_enablePointCloudContents = localStorage.getItem('debug_enablePointCloudContents') === 'true';
+export const debug_enablePointCloudContents = writable(storedDebug_enablePointCloudContents);
+debug_enablePointCloudContents.subscribe((value) => {
+    localStorage.setItem('debug_enablePointCloudContents', value === true ? 'true' : 'false');
+});
+
+/**
  * Keeps some state of the dashboard.
  *
  * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}

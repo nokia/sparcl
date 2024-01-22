@@ -18,7 +18,8 @@
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
         allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
         creatorModeSettings, experimentModeSettings,
-        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, myAgentColor, myAgentName, availableMessageBrokerServices,
+        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, debug_enablePointCloudContents,
+        myAgentColor, myAgentName, availableMessageBrokerServices
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -551,6 +552,11 @@
     <div>
         <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
         <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
+    </div>
+
+    <div>
+        <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
+        <label for="enablePointCloudContents">Enable point cloud contents</label>
     </div>
 </details>
 

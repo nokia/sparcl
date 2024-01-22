@@ -286,6 +286,8 @@
             const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
             robotPathPolylines[msg.agent_id] = { robotPolyLine, robotPolyLinePoints };
             robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {
+                if (!parentInstance) return;
+                if (!robotPathPolylines[msg.agent_id]) return;
                 parentInstance.getRenderer().remove(robotPathPolylines[msg.agent_id].robotPolyLine);
                 delete robotPathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPathPolylines reactively
             }, 2000);
