@@ -7,33 +7,43 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import {createEventDispatcher, getContext, onDestroy} from 'svelte';
-    import {writable} from 'svelte/store';
+    import { createEventDispatcher, getContext, onDestroy } from 'svelte';
+    import { writable } from 'svelte/store';
 
-    import {v4 as uuidv4} from 'uuid';
+    import { v4 as uuidv4 } from 'uuid';
 
     import { userOnRobotPathBlinkingAlert } from '@src/stateStore';
-    import {sendRequest, validateRequest} from '@oarc/gpp-access';
+    import { sendRequest, validateRequest } from '@oarc/gpp-access';
     import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
-    import {CameraParam, CAMERAMODEL} from '@oarc/gpp-access/request/options/CameraParam.js';
-    import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
+    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access/request/options/CameraParam.js';
+    import { IMAGEFORMAT } from '@oarc/gpp-access/GppGlobals.js';
 
-    import {getContentsAtLocation} from '@oarc/scd-access';
+    import { getContentsAtLocation } from '@oarc/scd-access';
 
-    import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
+    import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
 
-    import {arMode, availableContentServices,
-        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage, debug_enablePointCloudContents,
-        initialLocation, receivedScrs, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
+    import {
+        arMode,
+        availableContentServices,
+        debug_showLocalAxes,
+        debug_useGeolocationSensors,
+        debug_saveCameraImage,
+        debug_loadCameraImage,
+        debug_enablePointCloudContents,
+        initialLocation,
+        receivedScrs,
+        recentLocalisation,
+        selectedContentServices,
+        selectedGeoPoseService,
+    } from '@src/stateStore';
 
-    import {ARMODES, wait} from "@core/common";
-    import {loadImageBase64, saveImageBase64, saveText} from '@core/devTools';
-    import {upgradeGeoPoseStandard} from '@core/locationTools';
-    import {getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor,
-         stopOrientationSensor, unlockScreenOrientation} from "@core/sensors";
+    import { ARMODES, wait } from '@core/common';
+    import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
+    import { upgradeGeoPoseStandard } from '@core/locationTools';
+    import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
 
-    import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
+    import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -56,14 +66,14 @@
     $context = {
         showFooter: false,
         isLocalized: false,
-        isLocalizing: false,      // while waiting for GeoPose service localization
+        isLocalizing: false, // while waiting for GeoPose service localization
         isLocalisationDone: false, // whether to show the dom-overlay with 'localize' button
-        receivedContentTitles: []
-    }
+        receivedContentTitles: [],
+    };
 
     onDestroy(() => {
         tdEngine.stop();
-    })
+    });
 
     /**
      * Initial setup.
@@ -77,7 +87,7 @@
         tdEngine = this3dEngine;
 
         // give the component some time to set up itself
-        wait(1000).then(() => $context.showFooter = true);
+        wait(1000).then(() => ($context.showFooter = true));
     }
 
     /**
@@ -90,15 +100,14 @@
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export async function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
-                                 setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
+    export async function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback, setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
             optionalFeatures: optionalFeatures,
-        }
+        };
 
         if (requiredFeatures.includes('dom-overlay') || optionalFeatures.includes('dom-overlay')) {
-            options.domOverlay = {root: overlay};
+            options.domOverlay = { root: overlay };
         }
 
         let promise = xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
@@ -110,13 +119,14 @@
             startOrientationSensor();
         }
 
-        promise.then(() => {
+        promise
+            .then(() => {
                 xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
                 tdEngine.init();
             })
-            .catch(error => {
+            .catch((error) => {
                 unableToStartSession = true;
-                message("WebXR Immersive AR failed to start: " + error);
+                message('WebXR Immersive AR failed to start: ' + error);
             });
     }
 
@@ -152,7 +162,7 @@
             if (!$context.isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
                 const res = xrEngine.getCameraTexture2(view); // new Chrome 92
-                cameraTexture = res.cameraTexture
+                cameraTexture = res.cameraTexture;
                 cameraIntrinsics = res.cameraIntrinsics;
                 cameraViewport = res.cameraViewport;
             }
@@ -170,7 +180,7 @@
                 let image = null; // base64 encoded
                 if ($debug_loadCameraImage) {
                     // TODO: intrinsics could be also loaded separately
-                    let url = "/photos/your_photo.jpg"; // place the photo into the photos subfolder
+                    let url = '/photos/your_photo.jpg'; // place the photo into the photos subfolder
                     image = loadImageBase64(debug_CameraImageUrl);
                 } else {
                     image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
@@ -205,11 +215,11 @@
                         let scrsPromises = getContentsInH3Cell();
                         return scrsPromises;
                     })
-                    .then(scrs => {
+                    .then((scrs) => {
                         // NOTE: the next step expects an array of array of SCRs in the scrs variable
-                        console.log("Received " + scrs.length + " SCRs");
+                        console.log('Received ' + scrs.length + ' SCRs');
                         placeContent(scrs);
-                    })
+                    });
             }
 
             tdEngine.render(time, view);
@@ -258,8 +268,7 @@
      */
     export function handleExternalExperience(view) {
         if (experienceLoaded === true) {
-            externalContent.contentWindow.postMessage(
-                tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
         }
     }
 
@@ -277,23 +286,22 @@
     export function localize(image, width, height, cameraIntrinsics) {
         return new Promise((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
-                console.warn("There is no available GeoPose service. Trying to use the on-board sensors instead.")
+                console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
 
             if ($debug_useGeolocationSensors) {
-                getSensorEstimatedGeoPose()
-                    .then(selfEstimatedGeoPose => {
-                        $context.isLocalizing = false;
-                        $context.isLocalized = true;
-                        // allow relocalization after a few seconds
-                        wait(4000).then(() => {
-                            $context.showFooter = false;
-                            $context.isLocalisationDone = true;
-                        });
-                        console.log("SENSOR GeoPose:");
-                        console.log(selfEstimatedGeoPose);
-                        resolve([selfEstimatedGeoPose]);
+                getSensorEstimatedGeoPose().then((selfEstimatedGeoPose) => {
+                    $context.isLocalizing = false;
+                    $context.isLocalized = true;
+                    // allow relocalization after a few seconds
+                    wait(4000).then(() => {
+                        $context.showFooter = false;
+                        $context.isLocalisationDone = true;
                     });
+                    console.log('SENSOR GeoPose:');
+                    console.log(selfEstimatedGeoPose);
+                    resolve([selfEstimatedGeoPose]);
+                });
                 return;
             }
 
@@ -310,19 +318,19 @@
             validateRequest(false);
 
             sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
-                .then(data => {
+                .then((data) => {
                     $context.isLocalizing = false;
                     $context.isLocalized = true;
                     wait(4000).then(() => {
                         $context.showFooter = false;
                         $context.isLocalisationDone = true;
                     });
-                    console.log("GPP response:");
+                    console.log('GPP response:');
                     console.log(data);
 
                     // GeoPoseResp
                     // https://github.com/OpenArCloud/oscp-geopose-protocol
-                    let cameraGeoPose = null
+                    let cameraGeoPose = null;
                     if (data.geopose != undefined && data.scrs != undefined && data.geopose.geopose != undefined) {
                         // data is AugmentedCity format which contains other entries too
                         // (for example AC /scrs/geopose_objs_local endpoint)
@@ -332,27 +340,27 @@
                         // (for example AC /scrs/geopose endpoint)
                         cameraGeoPose = data.geopose;
                     } else {
-                        errorMessage = "GPP response has no geopose field";
+                        errorMessage = 'GPP response has no geopose field';
                         console.log(errorMessage);
                         throw errorMessage;
                     }
 
-                    console.log("IMAGE GeoPose:");
+                    console.log('IMAGE GeoPose:');
                     console.log(cameraGeoPose);
 
                     // NOTE: AugmentedCity also returns neighboring objects in the GPP response
                     let optionalScrs = undefined;
                     if (data.scrs != undefined) {
                         optionalScrs = data.scrs;
-                        console.log("GPP response also contains " + optionalScrs.length + " SCRs.");
+                        console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
                     }
 
                     resolve([cameraGeoPose, optionalScrs]);
                 })
-                .catch(error => {
+                .catch((error) => {
                     // TODO: Inform user
                     $context.isLocalizing = false;
-                    console.error("Could not localize. Error: " + error);
+                    console.error('Could not localize. Error: ' + error);
                     reject(error);
                 });
         });
@@ -383,11 +391,11 @@
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
                 // TODO: H3 cell ID and topic should be be customizable
-                let scrs_ = getContentsAtLocation(service.url, 'history', $initialLocation.h3Index)
+                let scrs_ = getContentsAtLocation(service.url, 'history', $initialLocation.h3Index);
                 result.push(scrs_);
             }
-            return result
-        }, [])
+            return result;
+        }, []);
 
         return Promise.all(servicePromises);
     }
@@ -409,10 +417,10 @@
     export function placeContent(scrs) {
         let showContentsLog = false;
 
-        scrs.forEach(response => {
+        scrs.forEach((response) => {
             //console.log('Number of content items received: ', response.length);
 
-            response.forEach(record => {
+            response.forEach((record) => {
                 // TODO: validate here whether we received a proper SCR
                 // TODO: we can check here whether we have received this content already and break if yes.
 
@@ -422,10 +430,7 @@
                 //console.log(" -type: " + record.content.type);
 
                 // TODO: first save the records and then start to instantiate the objects
-                if (record.content.type === "placeholder" ||
-                        record.content.type === "3D" ||
-                        record.content.type === "MODEL_3D" ||
-                        record.content.type === "ICON") {
+                if (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON') {
                     // only list the 3D models and not ephemeral objects nor stream objects
                     $receivedScrs.push(record);
                     $context.receivedContentTitles.push(record.content.title);
@@ -433,7 +438,6 @@
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
-
 
                 let content_definitions = {};
                 if (record.content.definitions != undefined) {
@@ -451,170 +455,168 @@
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
-                case "MODEL_3D":
-                case "3D": // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
-                case "placeholder": // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
-                {
-                    showContentsLog = true; // show log if at least one 3D object was received
+                    case 'MODEL_3D':
+                    case '3D': // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
+                    case 'placeholder': { // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
+                        showContentsLog = true; // show log if at least one 3D object was received
 
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    let position = localObjectPose.position;
-                    let orientation = localObjectPose.quaternion;
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        let position = localObjectPose.position;
+                        let orientation = localObjectPose.quaternion;
 
-                    // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
-                    // kept for backward compatibility and will be removed
-                    //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                    if (record.content.custom_data?.sticker_subtype != undefined) {
-                        const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                        const url = record.content.custom_data.path;
+                        // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
+                        // kept for backward compatibility and will be removed
+                        //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
+                        if (record.content.custom_data?.sticker_subtype != undefined) {
+                            const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                            const url = record.content.custom_data.path;
 
-                        // TODO: Receive list of events to register to from SCD and register them here
-                        switch (subtype) {
-                            case 'scene':
-                                const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                                tdEngine.addClickEvent(experiencePlaceholder,
-                                    () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                                break;
-                            case 'gltf':
+                            // TODO: Receive list of events to register to from SCD and register them here
+                            switch (subtype) {
+                                case 'scene':
+                                    const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                                    tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                                    break;
+                                case 'gltf':
+                                    tdEngine.addModel(position, orientation, url);
+                                    break;
+                                default:
+                                    console.log('Error: unexpected sticker subtype: ' + subtype);
+                                    break;
+                            }
+                        } else if (record.content.refs != undefined && record.content.refs.length > 0) {
+                            // OSCP-compliant 3D content structure
+                            // TODO load all, not only first reference
+                            const contentType = record.content.refs[0].contentType;
+                            const url = record.content.refs[0].url;
+                            if (contentType.includes('gltf')) {
                                 tdEngine.addModel(position, orientation, url);
-                                break;
-                            default:
-                                console.log("Error: unexpected sticker subtype: " + subtype);
-                                break;
-                        }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
-                        // OSCP-compliant 3D content structure
-                        // TODO load all, not only first reference
-                        const contentType = record.content.refs[0].contentType;
-                        const url = record.content.refs[0].url;
-                        if (contentType.includes("gltf")) {
-                            tdEngine.addModel(position, orientation, url);
+                            } else {
+                                // we cannot load anything else but GLTF
+                                // so draw a placeholder instead
+                                const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                            }
                         } else {
-                            // we cannot load anything else but GLTF
+                            // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
                             // so draw a placeholder instead
                             const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                            handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
+                            handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                         }
-                    } else {
-                        // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
-                        // so draw a placeholder instead
-                        const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                        handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
+                        break;
                     }
-                    break;
-                }
-                case "ephemeral": {
-                    // ISMAR2021 demo
-                    if (record.tenant === 'ISMAR2021demo') {
-                        //console.log("ISMAR2021demo object received!")
-                        let object_description = record.content.object_description;
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
-                    }
-                    break;
-                }
-                case "geopose_stream": {
-                    // IROS2022 demo
-                    if (record.tenant === 'IROS2022demo') {
-                        //console.log("IROS2022demo object received!")
-                        let object_description = record.content.object_description;
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        let object_id = record.content.id;
-                        if (tdEngine.getDynamicObjectMesh(object_id) != null) {
-                            tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description)
-                        } else {
-                            tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                    case 'ephemeral': {
+                        // ISMAR2021 demo
+                        if (record.tenant === 'ISMAR2021demo') {
+                            //console.log("ISMAR2021demo object received!")
+                            let object_description = record.content.object_description;
+                            let globalObjectPose = record.content.geopose;
+                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                         }
+                        break;
                     }
-                    break;
-                }
-                case "sensor_stream": {
-                    let chair_id_index = record.content.definitions?.findIndex(function(key_value_pair) {
-                        return key_value_pair.type === "chair_id"; // WARNING: a 'key' is called 'type' in the SCR definitions
-                    }); // -1 if not found
-                    if (chair_id_index >= 0) {
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        let chair_id = record.content.definitions[chair_id_index].value;
-                        if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
-                            tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                        } else {
-                            tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                    case 'geopose_stream': {
+                        // IROS2022 demo
+                        if (record.tenant === 'IROS2022demo') {
+                            //console.log("IROS2022demo object received!")
+                            let object_description = record.content.object_description;
+                            let globalObjectPose = record.content.geopose;
+                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            let object_id = record.content.id;
+                            if (tdEngine.getDynamicObjectMesh(object_id) != null) {
+                                tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                            } else {
+                                tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                            }
                         }
+                        break;
+                    }
+                    case 'sensor_stream': {
+                        let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
+                            return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
+                        }); // -1 if not found
+                        if (chair_id_index >= 0) {
+                            let globalObjectPose = record.content.geopose;
+                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            let chair_id = record.content.definitions[chair_id_index].value;
+                            if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
+                                tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                            } else {
+                                tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                            }
+                        }
+
+                        // TODO: addObject should return some ID in the scene
+                        // the sensor's real-world ID shoudl be an entry in the SCR
+                        // we should store the object's ID in the scene together with the SCR ID in a map
+                        // when we receive a new sensor value, we check the incoming sensorID, look it up in the map
+                        // if it does not exist, we create a model for it with tdEngine.addObject()
+                        // if it exists, we retrieve the corresponding model and manipulate it
+                        break;
                     }
 
-                    // TODO: addObject should return some ID in the scene
-                    // the sensor's real-world ID shoudl be an entry in the SCR
-                    // we should store the object's ID in the scene together with the SCR ID in a map
-                    // when we receive a new sensor value, we check the incoming sensorID, look it up in the map
-                    // if it does not exist, we create a model for it with tdEngine.addObject()
-                    // if it exists, we retrieve the corresponding model and manipulate it
-                    break;
-                }
+                    case 'POINTCLOUD': {
+                        if ($debug_enablePointCloudContents) {
+                            const globalObjectPose = record.content.geopose;
+                            const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            const position = localObjectPose.position;
+                            const orientation = localObjectPose.quaternion;
+                            let url = '';
+                            if (content_definitions['url'] != undefined) {
+                                url = content_definitions['url'];
+                            } else {
+                                url = record.content.refs[0].url;
+                            }
+                            tdEngine.addPointCloud(url, position, orientation);
+                        } else {
+                            console.log('A POINTCLOUD content was received but this type is disabled');
+                        }
+                        break;
+                    }
 
-                case "POINTCLOUD": {
-                    if ($debug_enablePointCloudContents) {
+                    case 'ICON': {
                         const globalObjectPose = record.content.geopose;
                         const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        const position = localObjectPose.position;
-                        const orientation = localObjectPose.quaternion;
-                        let url = "";
-                        if (content_definitions["url"] != undefined) {
-                            url = content_definitions["url"];
+                        const localPosition = localObjectPose.position;
+                        const localQuaternion = localObjectPose.quaternion;
+                        let url = '';
+                        if (content_definitions['url'] != undefined) {
+                            url = content_definitions['url'];
                         } else {
                             url = record.content.refs[0].url;
                         }
-                        tdEngine.addPointCloud(url, position, orientation)
-                    } else {
-                        console.log("A POINTCLOUD content was received but this type is disabled");
+                        let width = 1.0;
+                        if (content_definitions['width'] != undefined) {
+                            width = content_definitions['width'];
+                        }
+                        let height = 1.0;
+                        if (content_definitions['height'] != undefined) {
+                            height = content_definitions['height'];
+                        }
+                        tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
+                        break;
                     }
-                    break;
-                }
-
-                case "ICON": {
-                    const globalObjectPose = record.content.geopose;
-                    const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    const localPosition = localObjectPose.position;
-                    const localQuaternion = localObjectPose.quaternion;
-                    let url = "";
-                    if (content_definitions["url"] != undefined) {
-                        url = content_definitions["url"];
-                    } else {
-                        url = record.content.refs[0].url;
+                    default: {
+                        console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
+                        console.log(record.content);
                     }
-                    let width = 1.0;
-                    if (content_definitions["width"] != undefined) {
-                        width = content_definitions["width"];
-                    }
-                    let height = 1.0;
-                    if (content_definitions["height"] != undefined) {
-                        height = content_definitions["height"];
-                    }
-                    tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
-                    break;
                 }
-                default: {
-                    console.log(record.content.title + " has unexpected content type: " + record.content.type);
-                    console.log(record.content);
-                }
-                }
-            })
-        })
+            });
+        });
 
         // DEBUG
         if (showContentsLog) {
-            console.log("Received contents: ");
-            $receivedScrs.forEach(record => {
-                console.log("  " + record.content.title);
+            console.log('Received contents: ');
+            $receivedScrs.forEach((record) => {
+                console.log('  ' + record.content.title);
             });
         }
 
         tdEngine.updateSceneGraphTransforms();
 
-        wait(3000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
+        wait(3000).then(() => ($context.receivedContentTitles = [])); // clear the list after a timer
     }
 
     /**
@@ -629,23 +631,30 @@
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;
-        window.addEventListener('message', (event) => {
-            if (event.data.type === 'loaded') {
-                tdEngine.remove(placeholder);
-                experienceLoaded = true;
-                experienceMatrix = placeholder.matrix;
+        window.addEventListener(
+            'message',
+            (event) => {
+                if (event.data.type === 'loaded') {
+                    tdEngine.remove(placeholder);
+                    experienceLoaded = true;
+                    experienceMatrix = placeholder.matrix;
 
-                closeExperience.addEventListener('click', () => {
-                    experienceLoaded = false;
-                    experienceMatrix = null;
-                    externalContent.src = '';
+                    closeExperience.addEventListener(
+                        'click',
+                        () => {
+                            experienceLoaded = false;
+                            experienceMatrix = null;
+                            externalContent.src = '';
 
-                    const nextPlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                    tdEngine.addClickEvent(nextPlaceholder,
-                        () => experienceLoadHandler(nextPlaceholder, position, orientation, url));
-                }, {once: true})
-            }
-        }, { once: true });
+                            const nextPlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                            tdEngine.addClickEvent(nextPlaceholder, () => experienceLoadHandler(nextPlaceholder, position, orientation, url));
+                        },
+                        { once: true },
+                    );
+                }
+            },
+            { once: true },
+        );
     }
 
     export function getRenderer() {
@@ -666,7 +675,7 @@
     const blinkingAlertStates = {
         state1: 'border: solid 5px red',
         state2: 'border: solid 5px black',
-    }
+    };
     // let blinkingAlert;
     // let interval;
     // function stopChanging() {
@@ -689,9 +698,45 @@
     // } else {
     //     stopChanging();
     // }
-
 </script>
 
+<canvas id="application" bind:this={canvas}></canvas>
+
+<aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
+    <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
+    <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg" bind:this={closeExperience} />
+
+    <!--  Space for UI elements -->
+    {#if $context.showFooter || true}
+        <!-- always show footer now for demo purposes -->
+        <footer style={blinkingAlertStates[$userOnRobotPathBlinkingAlert] ?? ''}>
+            {#if unableToStartSession}
+                <h4>Couldn't start AR</h4>
+                <p>
+                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/help/incubationflag.html"> experimental flags</a> to be enabled.
+                </p>
+            {:else if Object.values(ARMODES).includes($arMode)}
+                <slot
+                    name="overlay"
+                    {firstPoseReceived}
+                    isLocalized={$context.isLocalized}
+                    isLocalisationDone={$context.isLocalisationDone}
+                    isLocalizing={$context.isLocalizing}
+                    receivedContentTitles={$context.receivedContentTitles}
+                />
+            {:else if $arMode === ARMODES.marker}
+                <ArMarkerOverlay />
+            {:else}
+                <p>Somethings wrong...</p>
+                <p>Apologies.</p>
+            {/if}
+        </footer>
+    {/if}
+
+    {#if hasLostTracking}
+        <div id="trackinglostindicator"></div>
+    {/if}
+</aside>
 
 <style>
     aside footer {
@@ -709,12 +754,13 @@
         font-weight: bold;
         text-align: center;
 
-        background: #FFFFFF 0 0 no-repeat padding-box;
+        background: #ffffff 0 0 no-repeat padding-box;
 
         opacity: 0.7;
     }
 
-    canvas, iframe {
+    canvas,
+    iframe {
         position: absolute;
         top: 0;
         left: 0;
@@ -748,42 +794,3 @@
         display: none;
     }
 </style>
-
-
-<canvas id='application' bind:this={canvas}></canvas>
-
-<aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
-    <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
-    <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg"
-         bind:this={closeExperience} />
-
-    <!--  Space for UI elements -->
-    {#if $context.showFooter || true}  <!-- always show footer now for demo purposes -->
-        <footer style={blinkingAlertStates[$userOnRobotPathBlinkingAlert] ?? ''}>
-            {#if unableToStartSession}
-                <h4>Couldn't start AR</h4>
-                <p>
-                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/help/incubationflag.html">
-                    experimental flags</a> to be enabled.
-                </p>
-            {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay"
-                    {firstPoseReceived}
-                    isLocalized={$context.isLocalized}
-                    isLocalisationDone={$context.isLocalisationDone}
-                    isLocalizing={$context.isLocalizing}
-                    receivedContentTitles={$context.receivedContentTitles}
-                />
-            {:else if $arMode === ARMODES.marker}
-                <ArMarkerOverlay/>
-            {:else}
-                <p>Somethings wrong...</p>
-                <p>Apologies.</p>
-            {/if}
-        </footer>
-    {/if}
-
-    {#if hasLostTracking}
-        <div id="trackinglostindicator"></div>
-    {/if}
-</aside>

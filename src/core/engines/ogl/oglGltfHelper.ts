@@ -1,6 +1,6 @@
 // code from OGL example https://github.com/oframe/ogl/blob/master/examples/load-gltf.html
 
-import {Program, TextureLoader, Vec3} from 'ogl';
+import { Program, TextureLoader, Vec3 } from 'ogl';
 
 const complex_shader = {
     vertex: /* glsl */ `
@@ -267,7 +267,6 @@ const complex_shader = {
         }
     `,
 };
-
 
 export function createGltfProgram(node) {
     const gltf = node.program.gltfMaterial || {};

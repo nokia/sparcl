@@ -1,11 +1,10 @@
-import {Program, Geometry, Transform, Sphere} from 'ogl';
+import { Program, Geometry, Transform, Sphere } from 'ogl';
 
-import {PLYLoader} from '@loaders.gl/ply';
-import {load} from '@loaders.gl/core';
+import { PLYLoader } from '@loaders.gl/ply';
+import { load } from '@loaders.gl/core';
 
 import vs from '@shaders/pointcloudvertex.glsl';
 import fs from '@shaders/pointcloudfragment.glsl';
-
 
 export function createSimplePointCloudProgram(gl) {
     const program = new Program(gl, {
@@ -15,7 +14,7 @@ export function createSimplePointCloudProgram(gl) {
         transparent: false,
         cullFace: gl.NONE,
         depthTest: false,
-        depthWrite: false
+        depthWrite: false,
     });
     return program;
 }
@@ -29,15 +28,15 @@ export class MyPLYLoader {
 
         let attributes = {};
         if (data.attributes.POSITION != undefined) {
-            attributes["position"] = { size: 3, data: data.attributes.POSITION.value };
+            attributes['position'] = { size: 3, data: data.attributes.POSITION.value };
         }
         if (data.attributes.NORMAL != undefined) {
-            attributes["normal"] = { size: 3, data: data.attributes.NORMAL.value };
+            attributes['normal'] = { size: 3, data: data.attributes.NORMAL.value };
         }
         if (data.attributes.COLOR_0 != undefined) {
-            attributes["color"] = { size: 3, data: data.attributes.COLOR_0.value };
+            attributes['color'] = { size: 3, data: data.attributes.COLOR_0.value };
         }
-        const geometry = new Geometry(gl, attributes)
+        const geometry = new Geometry(gl, attributes);
         return geometry;
     }
 }

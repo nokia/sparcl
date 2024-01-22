@@ -1,7 +1,6 @@
-import {Program, Geometry, Transform, Plane, Texture, TextureLoader} from 'ogl';
+import { Program, Geometry, Transform, Plane, Texture, TextureLoader } from 'ogl';
 
-
-export function createLogoProgram(gl, texture){
+export function createLogoProgram(gl, texture) {
     const vertex = /* glsl */ `
         attribute vec2 uv;
         attribute vec3 position;
@@ -55,20 +54,19 @@ export function createLogoProgram(gl, texture){
     return program;
 }
 
-export async function loadLogoTexture(gl, url, format="RGBA") {
+export async function loadLogoTexture(gl, url, format = 'RGBA') {
     let glFormat = gl.RGBA;
-    switch(format) {
-        case "RGB":
+    switch (format) {
+        case 'RGB':
             glFormat = gl.RGB;
             break;
-        case "RGBA":
+        case 'RGBA':
             glFormat = gl.RGBA;
             break;
         default:
             console.log('Unknown texture format: ' + format);
             return;
     }
-    const texture = TextureLoader.load(gl, {src: url, format: glFormat});
+    const texture = TextureLoader.load(gl, { src: url, format: glFormat });
     return texture;
 }
-

@@ -203,7 +203,7 @@ export function normalizeColor(color) {
         return color / 255;
     }
     return color;
-};
+}
 
 // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = undefined }) {

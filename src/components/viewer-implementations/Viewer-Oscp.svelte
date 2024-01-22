@@ -30,12 +30,11 @@
     let robotPathPolylines = {};
     let robotPathClearTimeouts = {};
     let robotTargetWaypoints = {};
-    let selectedAgentIdToSend = "TEST_ROBOT_ID"; // this is just for testing, should be null
+    let selectedAgentIdToSend = 'TEST_ROBOT_ID'; // this is just for testing, should be null
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
 
     import { createEventDispatcher } from 'svelte';
     const dispatcher = createEventDispatcher();
-
 
     /**
      * Initial setup.
@@ -169,7 +168,7 @@
         const scale = 0.1;
         const model = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
         model.scale.set(scale);
-        robotTargetWaypoints = { ...robotTargetWaypoints, [targetAgentId]: {model:model, geopose:globalTargetPose, floorpose:localTargetPose} };
+        robotTargetWaypoints = { ...robotTargetWaypoints, [targetAgentId]: { model: model, geopose: globalTargetPose, floorpose: localTargetPose } };
 
         if (playAudio) {
             new Audio('media/audio/ding-36029.mp3').play();
@@ -232,7 +231,8 @@
             parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
 
             // if the robot is close to the target in global coordinates, make the target disappear
-            if (robotTargetWaypoints[agent_id]?.geopose?.position?.lat != undefined) { // there is a waypoint known for this agent
+            if (robotTargetWaypoints[agent_id]?.geopose?.position?.lat != undefined) {
+                // there is a waypoint known for this agent
                 const waypointLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(robotTargetWaypoints[agent_id].geopose);
                 let waypointPosition = waypointLocalPose.position;
                 waypointPosition[1] = 0.0; // Y UP set to zero
@@ -262,9 +262,9 @@
 
             // TODO: always draw and play sound, right?
             // if (targetAgentId === $myAgentId || targetAgentId === selectedAgentIdToSend) {
-                //const playAudio = targetAgentId === $myAgentId;
-                const playAudio = true;
-                setWaypointObject({ globalTargetPose, localTargetPose, targetAgentId, active, playAudio });
+            //const playAudio = targetAgentId === $myAgentId;
+            const playAudio = true;
+            setWaypointObject({ globalTargetPose, localTargetPose, targetAgentId, active, playAudio });
             //}
         }
 
@@ -430,7 +430,7 @@
             }
             checkGLError(myGl, 'after creating reticle');
 
-            if(!hitTestSource) {
+            if (!hitTestSource) {
                 console.log('HitTestSource is invalid! Cannot use reticle');
                 reticle.visible = false;
             } else {

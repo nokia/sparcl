@@ -97,7 +97,7 @@ export const creatorModeSettings = writable(
         style: [],
         modelurl: '',
         sceneurl: '',
-    }
+    },
 );
 creatorModeSettings.subscribe((value) => {
     localStorage.setItem('creatormodesettings', JSON.stringify(value));
@@ -149,7 +149,7 @@ export const availableGeoPoseServices = derived(
             geoposeServices.concat(
                 record.services.forEach((service) => {
                     if (service.type === 'geopose') geoposeServices.push(service);
-                })
+                }),
             );
         }
 
@@ -168,7 +168,7 @@ export const availableGeoPoseServices = derived(
             debug_useGeolocationSensors.set(true);
         }
     },
-    []
+    [],
 );
 
 /**
@@ -184,7 +184,7 @@ export const availableContentServices = derived(
             contentServices.concat(
                 record.services.forEach((service) => {
                     if (service.type === 'content-discovery') contentServices.push(service);
-                })
+                }),
             );
         }
 
@@ -202,7 +202,7 @@ export const availableContentServices = derived(
             selectedContentServices.set(selection);
         }
     },
-    []
+    [],
 );
 
 /**
@@ -220,7 +220,7 @@ export const availableP2pServices = derived(
             p2pServices.concat(
                 record.services.forEach((service) => {
                     if (service.type === 'p2p-master') p2pServices.push(service);
-                })
+                }),
             );
         }
 
@@ -232,7 +232,7 @@ export const availableP2pServices = derived(
             selectedP2pService.set(p2pServices[0]);
         }
     },
-    []
+    [],
 );
 
 /**
@@ -260,7 +260,7 @@ export const availableMessageBrokerServices = derived(
             selectedP2pService.set(messageBrokerServices[0]);
         }
     },
-    []
+    [],
 );
 
 export const isRabbitmqConnectionTestSuccessful = writable(null);
@@ -493,7 +493,9 @@ const getRandomColorValue = () => {
  *
  * @type {Writable<{r: number, g: number, b: number, a: number}>}
  */
-const storedMyAgentColor = localStorage.getItem('myAgentColor') ? JSON.parse(localStorage.getItem('myAgentColor')) : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
+const storedMyAgentColor = localStorage.getItem('myAgentColor')
+    ? JSON.parse(localStorage.getItem('myAgentColor'))
+    : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
 export const myAgentColor = writable(storedMyAgentColor);
 myAgentColor.subscribe((value) => {
     localStorage.setItem('myAgentColor', JSON.stringify(value));
