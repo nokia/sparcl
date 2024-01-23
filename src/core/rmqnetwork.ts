@@ -37,6 +37,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
     console.log('Connecting to RMQ ' + url);
+    console.log('url', url)
     rmqClient = stomp.client(url);
     rmqClient.debug = function (str) {
         // for debugging, we can print all received messages to the console (or even to a separate HTML view)

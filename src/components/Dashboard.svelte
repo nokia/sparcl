@@ -12,7 +12,7 @@
     Temporary until better UX is found for the settings.
 -->
 <script lang="ts">
-    import { ColorPicker } from 'svelte-awesome-color-picker';
+    import ColorPicker from 'svelte-awesome-color-picker';
     import { createEventDispatcher, onMount, type ComponentType } from 'svelte';
     import { supportedCountries, type Service } from '@oarc/ssd-access';
 
@@ -63,7 +63,7 @@
 
     let rmqTestPromise: Promise<boolean>;
     onMount(() => {
-        if ($selectedMessageBrokerService.url && $messageBrokerAuth[$selectedMessageBrokerService?.guid].username != null)
+        if ($selectedMessageBrokerService?.url && $messageBrokerAuth[$selectedMessageBrokerService?.guid]?.username != null)
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
     });
 
@@ -301,8 +301,10 @@
                     <div class="center" style="padding-top: 1rem;">
                         <button
                             id="test-rmq-auth-button"
-                            on:click={() => (rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] }))}
-                            >Test Authentication</button
+                            on:click={() =>
+                                (rmqTestPromise = $selectedMessageBrokerService
+                                    ? testRmqConnection({ url: $selectedMessageBrokerService?.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] })
+                                    : Promise.reject('no message broker service selected'))}>Test Authentication</button
                         >
                     </div>
                     {#if rmqTestPromise != null}

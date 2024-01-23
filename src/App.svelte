@@ -208,12 +208,14 @@
                 viewerInstance?.onNetworkEvent?.(data);
                 spectator?.onNetworkEvent(data);
             };
-            rmq.connectWithReceiveCallback({
-                updateFunction: rmq_callback,
-                url: $selectedMessageBrokerService.url,
-                password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
-                username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
-            });
+            if ($selectedMessageBrokerService) {
+                rmq.connectWithReceiveCallback({
+                    updateFunction: rmq_callback,
+                    url: $selectedMessageBrokerService.url,
+                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.password,
+                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.username,
+                });
+            }
         });
     });
 
@@ -285,12 +287,14 @@
             if (!rmq) {
                 rmq = await import('@src/core/rmqnetwork');
             }
-            rmq.connectWithReceiveCallback({
-                updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
-                url: $selectedMessageBrokerService.url,
-                password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
-                username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
-            });
+            if ($selectedMessageBrokerService) {
+                rmq.connectWithReceiveCallback({
+                    updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
+                    url: $selectedMessageBrokerService.url,
+                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.password,
+                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.username,
+                });
+            }
         }
         viewerInstance?.startAr(xrEngine, tdEngine, options);
     }

@@ -489,12 +489,12 @@ messageBrokerAuth.subscribe((value) => {
     localStorage.setItem('messageBrokerAuth', JSON.stringify(value));
 });
 
-const storedSelectedMessageBroker: Service & { guid: string } = JSON.parse(localStorage.getItem('selectedMessageBrokerService') || '{}');
+const storedSelectedMessageBroker: (Service & { guid: string }) | null = JSON.parse(localStorage.getItem('selectedMessageBrokerService') || 'null');
 export const selectedMessageBrokerService = writable(storedSelectedMessageBroker);
 selectedMessageBrokerService.subscribe((value) => {
     localStorage.setItem('selectedMessageBrokerService', JSON.stringify(value));
     const currentMessageBrokerAuth = get(messageBrokerAuth);
-    if (value.guid != null) {
+    if (value?.guid != null) {
         // initialize object
         messageBrokerAuth.set({ [value.guid]: { username: '', password: '' }, ...currentMessageBrokerAuth });
     }
