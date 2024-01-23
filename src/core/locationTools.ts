@@ -1,19 +1,26 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
 
 /*
   Utility functions helping with calculations around GeoPose.
 */
 
-import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
-import { quat, vec3 } from 'gl-matrix';
+import LatLon from 'geodesy/latlon-ellipsoidal-vincenty';
+import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import * as h3 from 'h3-js';
 import { supportedCountries } from '@oarc/ssd-access';
+import type { Geopose } from '@oarc/scd-access';
+import { Quat, type Vec3 } from 'ogl';
+import type { OldFormatGeopose } from '../types/xr';
 
-export const toRadians = (degrees) => (degrees / 180) * Math.PI;
-export const toDegrees = (radians) => (radians / Math.PI) * 180;
+export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
+export const toDegrees = (radians: number) => (radians / Math.PI) * 180;
 
 export const locationAccessOptions = {
     enableHighAccuracy: false,
@@ -25,19 +32,20 @@ export const locationAccessOptions = {
  * @param geoPose a GeoPose entry in old or new format
  * @returns The same GeoPose formatted according to the new (March 2022) standard
  */
-export function upgradeGeoPoseStandard(geoPose) {
-    if (geoPose.position != undefined) {
+export function upgradeGeoPoseStandard(geoPose: OldFormatGeopose | Geopose): Geopose {
+    if ('position' in geoPose) {
         return geoPose;
     }
-    geoPose['position'] = {
-        lat: geoPose.latitude,
-        lon: geoPose.longitude,
-        h: geoPose.ellipsoidHeight,
+    const { latitude, longitude, ellipsoidHeight, ...quaternion } = geoPose;
+    const newFormatGeopose: Geopose = {
+        position: {
+            lat: geoPose.latitude,
+            lon: geoPose.longitude,
+            h: geoPose.ellipsoidHeight,
+        },
+        ...quaternion,
     };
-    delete geoPose['latitude'];
-    delete geoPose['longitude'];
-    delete geoPose['ellipsoidHeight'];
-    return geoPose;
+    return newFormatGeopose;
 }
 
 /**
@@ -45,7 +53,7 @@ export function upgradeGeoPoseStandard(geoPose) {
  * @param latitude number in degrees
  * @returns Earth radius in meters at input latitude
  */
-export function getEarthRadiusAt(latitude) {
+export function getEarthRadiusAt(latitude: number) {
     // https://en.wikipedia.org/wiki/Earth_ellipsoid
     // https://rechneronline.de/earth-radius/
 
@@ -67,12 +75,10 @@ let lastTimeCurrentLocationQuery = 0;
 
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
- *
- * @returns {Promise<LOCATIONINFO>}     Object with lat, lon, regionCode or rejects
  */
 export function getCurrentLocation() {
     console.log('getCurrentLocation...');
-    return new Promise((resolve, reject) => {
+    return new Promise<{ h3Index: h3.H3Index; lat: number; lon: number; countryCode: string; regionCode: string }>((resolve, reject) => {
         if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
@@ -125,19 +131,15 @@ export function getCurrentLocation() {
 }
 
 /**
- * Calculates the distance between two quaternions.
- *
- * Used to calculate the difference between the device rotation at the moment of localisation of the local and
- * global poses.
+ * Calculates the relative orientation between two quaternions and returns the corresponding Euler angles
  *
  * @param localisationQuaternion  Quaternion        Rotation returned by a GeoPose service after localisation (Array)
  * @param localQuaternion  Quaternion       Rotation reported from WebGL at the moment localisation was started
- * @returns {{x, y, z}}
+ * @returns vec3 Euler angles
  */
-export function calculateEulerRotation(localisationQuaternion, localQuaternion) {
-    const diff = calculateRotation(localisationQuaternion, localQuaternion);
-
-    const euler = vec3.create();
+export function getRelativeOrientationEuler(localisationQuaternion: ReadonlyQuat, localQuaternion: ReadonlyQuat) {
+    const diff = getRelativeOrientation(localisationQuaternion, localQuaternion);
+    let euler = vec3.create();
     getEuler(euler, diff);
     return euler;
 }
@@ -151,7 +153,7 @@ export function calculateEulerRotation(localisationQuaternion, localQuaternion) 
  * @param quat  Quaternion
  * @returns Array
  */
-export function getEuler(out, quat) {
+export function getEuler(out: vec3, quat: ReadonlyQuat) {
     let x = quat[0],
         y = quat[1],
         z = quat[2],
@@ -188,7 +190,7 @@ export function getEuler(out, quat) {
  * @param {*} geoVec3 vec3
  * @returns vec3
  */
-export function convertGeo2WebVec3(geoVec3) {
+export function convertGeo2WebVec3(geoVec3: vec3) {
     // X_WebXR =  X_ENU
     // Y_WebXR =  Z_ENU
     // Z_WebXR = -Y_ENU
@@ -200,7 +202,7 @@ export function convertGeo2WebVec3(geoVec3) {
  * @param {*} webVec3 vecc3
  * @returns vec3
  */
-export function convertWeb2GeoVec3(webVec3) {
+export function convertWeb2GeoVec3(webVec3: vec3) {
     // X_ENU =  X_WebXR
     // Y_ENU = -Z_WebXR
     // Z_ENU =  Y_WebXR
@@ -212,7 +214,7 @@ export function convertWeb2GeoVec3(webVec3) {
  * @param {*} geoQuat quat
  * @returns quat
  */
-export function convertGeo2WebQuat(geoQuat) {
+export function convertGeo2WebQuat(geoQuat: ReadonlyQuat) {
     // WebXR: X to the right, Y up, Z backwards
     // Geo East-North-Up (with camera facing to North): X to the right, Y forwards, Z up
     // X_WebXR =  X_ENU
@@ -226,7 +228,7 @@ export function convertGeo2WebQuat(geoQuat) {
  * @param {*} webQuat quat
  * @returns quat
  */
-export function convertWeb2GeoQuat(webQuat) {
+export function convertWeb2GeoQuat(webQuat: ReadonlyQuat) {
     // X_ENU =  X_WebXR
     // Y_ENU = -Z_WebXR
     // Z_ENU =  Y_WebXR
@@ -238,7 +240,7 @@ export function convertWeb2GeoQuat(webQuat) {
  * @param {*} acVec3 vec3
  * @returns vec3
  */
-export function convertAugmentedCityCam2WebVec3(acVec3) {
+export function convertAugmentedCityCam2WebVec3(acVec3: vec3) {
     // flip the axes from ENU to WebXR
     // X_WebXR = -Y_AC
     // Y_WebXR =  Z_AC
@@ -251,7 +253,7 @@ export function convertAugmentedCityCam2WebVec3(acVec3) {
  * @param {*} acQuat quaternion
  * @returns quat
  */
-export function convertAugmentedCityCam2WebQuat(acQuat) {
+export function convertAugmentedCityCam2WebQuat(acQuat: ReadonlyQuat) {
     // WebXR: X to the right, Y up, Z backwards
     // AugmentedCity cameraENU (with camera facing to East): X forward, Y to the left, Z up
 
@@ -284,7 +286,7 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
  * @param {*} sensorQuat quaternion
  * @returns quat
  */
-export function convertSensor2AugmentedCityCam(sensorQuat) {
+export function convertSensor2AugmentedCityCam(sensorQuat: ReadonlyQuat) {
     // NOTE: In our GeoPoseRequest to AugmentedCity, we always set ImageOrientation.mirrored = false and rotation = 0;
     // This is only correct because instead of the actual camera image,
     // we capture the camera texture which is always rotated according to the screen orientation.
@@ -313,7 +315,6 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
         console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
         quat.fromEuler(displayTransform, 0, 0, 0);
     }
-
     let screenQuat = quat.create();
     quat.multiply(screenQuat, displayTransform, sensorQuat);
     */
@@ -346,7 +347,7 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
  * @param objectGeoPose  GeoPose of an object
  * @returns vec3         Relative position of the object with respect to the camera
  */
-export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
+export function getRelativeGlobalPosition(cameraGeoPose: Geopose, objectGeoPose: Geopose) {
     // We wrap them into LatLon object for easier calculation of relative displacement
     const cam = new LatLon(cameraGeoPose.position.lat, cameraGeoPose.position.lon);
     const cam2objLat = new LatLon(objectGeoPose.position.lat, cameraGeoPose.position.lon);
@@ -389,7 +390,7 @@ export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
  * @param objectGeoPose  GeoPose of an object
  * @returns quat         Relative orientation of the object with respect to the camera
  */
-export function getRelativeGlobalOrientation(cameraGeoPose, objectGeoPose) {
+export function getRelativeGlobalOrientation(cameraGeoPose: Geopose, objectGeoPose: Geopose) {
     // camera orientation
     const qCam = quat.fromValues(cameraGeoPose.quaternion.x, cameraGeoPose.quaternion.y, cameraGeoPose.quaternion.z, cameraGeoPose.quaternion.w);
     // object orientation
@@ -407,7 +408,7 @@ export function getRelativeGlobalOrientation(cameraGeoPose, objectGeoPose) {
  * @param q2  quat Second quaternion
  * @returns  quat  The rotation which brings q1 into q2
  */
-export function getRelativeOrientation(q1, q2) {
+export function getRelativeOrientation(q1: ReadonlyQuat, q2: ReadonlyQuat) {
     // NOTE: if q2 = qdiff * q1, then  qdiff = q2 * inverse(q1)
     let q1Inv = quat.create();
     quat.invert(q1Inv, q1);
@@ -430,7 +431,7 @@ const e_sq = f * (2 - f);
  * Converts WGS-84 Geodetic point (lat, lon, h) to the
  * Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
  */
-export function convertGeodeticToEcef(lat, lon, h) {
+export function convertGeodeticToEcef(lat: number, lon: number, h: number) {
     const lamb = toRadians(lat);
     const phi = toRadians(lon);
 
@@ -453,7 +454,7 @@ export function convertGeodeticToEcef(lat, lon, h) {
  * East-North-Up coordinates in a Local Tangent Plane that is centered at the
  * (WGS-84) Geodetic point (lat0, lon0, h0).
  */
-export function convertEcefToEnu(x, y, z, lat0, lon0, h0) {
+export function convertEcefToEnu(x: number, y: number, z: number, lat0: number, lon0: number, h0: number) {
     const ecef_ref = convertGeodeticToEcef(lat0, lon0, h0);
 
     const xd = x - ecef_ref.x;
@@ -477,12 +478,12 @@ export function convertEcefToEnu(x, y, z, lat0, lon0, h0) {
     return { x: xEast, y: yNorth, z: zUp };
 }
 
-export function convertGeodeticToEnu(lat, lon, h, lat0, lon0, h0) {
+export function convertGeodeticToEnu(lat: number, lon: number, h: number, lat0: number, lon0: number, h0: number) {
     let ecef = convertGeodeticToEcef(lat, lon, h);
     return convertEcefToEnu(ecef.x, ecef.y, ecef.z, lat0, lon0, h0);
 }
 
-export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
+export function convertEnuToEcef(xEast: number, yNorth: number, zUp: number, lat0: number, lon0: number, h0: number) {
     const lamb = toRadians(lat0);
     const phi = toRadians(lon0);
 
@@ -516,7 +517,7 @@ export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
 // latitude and height equations’, B R Bowring, Survey Review vol 28, 218, Oct 1985.
 // ported from https://github.com/chrisveness/geodesy/blob/master/latlon-ellipsoidal.js#L378
 // Formula from http://www.movable-type.co.uk/scripts/latlong-os-gridref.html#cartesian-to-geodetic
-export function convertEcefToGeodetic(x, y, z) {
+export function convertEcefToGeodetic(x: number, y: number, z: number) {
     const e1_sq = 2 * f - f * f; // 1st eccentricity squared = (a^2 − b^2) / a^2
     const e2_sq = e1_sq / (1 - e1_sq); // 2nd eccentricity squared = (a^2 − b^2) / b^2
     const p = Math.sqrt(x * x + y * y); // distance from minor axis
@@ -545,22 +546,24 @@ export function convertEcefToGeodetic(x, y, z) {
     return { lat: toDegrees(latRad), lon: toDegrees(lonRad), h: height };
 }
 
-export function convertEnuToGeodetic(xEast, yNorth, zUp, lat0, lon0, h0) {
+export function convertEnuToGeodetic(xEast: number, yNorth: number, zUp: number, lat0: number, lon0: number, h0: number) {
     const enu = convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0);
     const geodetic = convertEcefToGeodetic(enu.x, enu.y, enu.z);
     return geodetic;
 }
 
-export function convertLocalPoseToEnu(localPose, T_local_to_enu) {
+export function convertLocalPoseToEnu(localPose: any, T_local_to_enu: any) {
+    // TODO: change any to actual type (Mat4)
     const enuPose = localPose.clone().multiplyLeft(T_local_to_enu);
     return enuPose;
 }
 
-export function convertLocalPoseToGeoPose(localPose, T_local_to_enu, refGeoPose) {
+export function convertLocalPoseToGeoPose(localPose: any, T_local_to_enu: any, refGeoPose: any) {
+    // TODO: change any to actual type (Mat4 and Geopose)
     const enuPose = convertLocalPoseToEnu(localPose, T_local_to_enu);
     const enuPosition = enuPose.getTranslation();
     const enuRotMat = enuPose.getRotationMatrix3();
-    const enuQuaternion = new Quaternion().fromMatrix3(enuRotMat);
+    const enuQuaternion = new Quat().fromMatrix3(enuRotMat);
 
     const dE = enuPosition[0];
     const dN = enuPosition[1];

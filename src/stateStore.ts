@@ -1,6 +1,10 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
 
 /*
@@ -11,10 +15,11 @@ import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
 import { v4 as uuidv4 } from 'uuid';
+import type { SSR, Service } from '@oarc/ssd-access';
+import type { Geopose, SCR } from '@oarc/scd-access';
 
 /**
  * Determines the availability of AR functions on the current device.
- *
  * @type {Readable<boolean>}    true when available, false otherwise
  */
 export const arIsAvailable = readable(false, (set) => {
@@ -27,12 +32,11 @@ export const arIsAvailable = readable(false, (set) => {
 
 /**
  * Determines and keeps track of the state of the location permission.
- *
  * @type {Readable<boolean>}
  */
-export const isLocationAccessAllowed = readable(false, (set) => {
-    let currentResult;
-    const stateResult = (state) => state === 'granted';
+export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
+    let currentResult: PermissionStatus;
+    const stateResult = (state: string) => state === 'granted';
 
     // NOTE: navigator.permissions is undefined on iOS
     if (navigator == undefined || navigator.permissions == undefined) {
@@ -47,7 +51,9 @@ export const isLocationAccessAllowed = readable(false, (set) => {
     });
 
     return () => {
-        if (currentResult) currentResult.onchange = undefined;
+        if (currentResult) {
+            currentResult.onchange = null;
+        }
     };
 });
 
@@ -86,11 +92,10 @@ arMode.subscribe((value) => {
 
 /**
  * Available settings for creator mode.
- *
  * @type {Writable<{shape: string, style: [], type: string, url: string}>}
  */
-const storedCreatorModeSettings = JSON.parse(localStorage.getItem('creatormodesettings'));
-export const creatorModeSettings = writable(
+const storedCreatorModeSettings = JSON.parse(localStorage.getItem('creatormodesettings') || 'null');
+export const creatorModeSettings = writable<{ shape: string; style: []; type: string; modelurl: string; sceneurl: string }>(
     storedCreatorModeSettings || {
         type: CREATIONTYPES.placeholder,
         shape: PLACEHOLDERSHAPES.pole,
@@ -105,22 +110,24 @@ creatorModeSettings.subscribe((value) => {
 
 /**
  * Available settings for experiment mode.
- *
- * @type {Writable<{type: string}>}
  */
-const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings'));
-export const experimentModeSettings = writable(storedExperimentModeSettings);
+const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings') || '{}');
+export const experimentModeSettings = writable<Record<string, Record<string, unknown>>>(storedExperimentModeSettings);
 experimentModeSettings.subscribe((value) => {
     localStorage.setItem('experimentmodesettings', JSON.stringify(value));
 });
 
+const storedActiveExperiment = JSON.parse(localStorage.getItem('activeExperiment') || 'null');
+export const activeExperiment = writable<string | null>(storedActiveExperiment);
+activeExperiment.subscribe((value) => {
+    localStorage.setItem('activeExperiment', JSON.stringify(value));
+});
+
 /**
  * The rough location of the device when the application was started.
- *
- * @type {Writable<LOCATIONINFO>}
  */
 export const initialLocation = writable({
-    h3Index: 0,
+    h3Index: '',
     lat: 0,
     lon: 0,
     countryCode: '',
@@ -129,40 +136,34 @@ export const initialLocation = writable({
 
 /**
  * Currently valid ssr record, containing the last requested spatial services record.
- *
- * @type {Writable<{SSR[]}>}
  */
-export const ssr = writable([]);
+export const ssr = writable<SSR[]>([]);
 
 /**
  * Derived store of the ssr store for easy access of all contained GeoPose services.
- *
- * @type {Readable<SERVICE[]>}
  */
-export const availableGeoPoseServices = derived(
+export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        selectedGeoPoseService.set('none');
+        selectedGeoPoseService.set(null);
 
-        let geoposeServices = [];
+        const geoposeServices: Service[] = [];
         for (let record of $ssr) {
-            geoposeServices.concat(
-                record.services.forEach((service) => {
-                    if (service.type === 'geopose') geoposeServices.push(service);
-                }),
-            );
+            record.services.map((service) => {
+                if (service.type === 'geopose') geoposeServices.push(service);
+            });
         }
 
         set(geoposeServices);
 
         // If none selected yet, set the first available as selected
         // TODO: Make sure that stored selected service is still valid
-        if (get(selectedGeoPoseService) === 'none' && geoposeServices.length > 0) {
+        if (get(selectedGeoPoseService) === null && geoposeServices.length > 0) {
             selectedGeoPoseService.set(geoposeServices[0]);
         }
 
         // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
-        if (get(selectedGeoPoseService) !== 'none') {
+        if (get(selectedGeoPoseService) !== null) {
             debug_useGeolocationSensors.set(false);
         } else {
             debug_useGeolocationSensors.set(true);
@@ -173,31 +174,25 @@ export const availableGeoPoseServices = derived(
 
 /**
  * Derived store of ssr store for easy access of all contained content services.
- *
- * @type {Readable<SERVICE[]>}
  */
-export const availableContentServices = derived(
+export const availableContentServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        let contentServices = [];
+        const contentServices: Service[] = [];
         for (let record of $ssr) {
-            contentServices.concat(
-                record.services.forEach((service) => {
-                    if (service.type === 'content-discovery') contentServices.push(service);
-                }),
-            );
+            record.services.forEach((service) => {
+                if (service.type === 'content-discovery') {
+                    contentServices.push(service);
+                }
+            });
         }
-
         set(contentServices);
-
         // If none selected yet, set all available as selected
         if (Object.keys(get(selectedContentServices)).length === 0 && contentServices.length > 0) {
-            let selection = {};
+            let selection: Record<string, { isSelected: boolean; selectedTopic: string }> = {};
             for (const [key, service] of contentServices.entries()) {
-                const id = service.id;
-                selection[id] = {};
-                selection[id].isSelected = true;
-                selection[id].selectedTopic = 'history'; // TODO: get first topic from service (As of 2021, we put everything under the history topic)
+                selection[service.id] = { isSelected: true, selectedTopic: 'history' };
+                // TODO: get first topic from service (As of 2021, we put everything under the history topic)
             }
             selectedContentServices.set(selection);
         }
@@ -207,28 +202,24 @@ export const availableContentServices = derived(
 
 /**
  * Derived store of ssr store for easy access of all contained p2pmaster services.
- *
- * @type {Readable<SERVICE[]>}
  */
-export const availableP2pServices = derived(
+export const availableP2pServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        selectedP2pService.set('none');
+        selectedP2pService.set(null);
 
-        let p2pServices = [];
+        const p2pServices: Service[] = [];
         for (let record of $ssr) {
-            p2pServices.concat(
-                record.services.forEach((service) => {
-                    if (service.type === 'p2p-master') p2pServices.push(service);
-                }),
-            );
+            record.services.forEach((service) => {
+                if (service.type === 'p2p-master') {
+                    p2pServices.push(service);
+                }
+            });
         }
-
         set(p2pServices);
-
         // If none selected yet, set the first available as selected
         // TODO: Make sure that stored selected service is still valid
-        if (get(selectedP2pService) === 'none' && p2pServices.length > 0) {
+        if (get(selectedP2pService) === null && p2pServices.length > 0) {
             selectedP2pService.set(p2pServices[0]);
         }
     },
@@ -236,20 +227,25 @@ export const availableP2pServices = derived(
 );
 
 /**
- * Derived store of ssr store for easy access of all contained p2pmaster services.
- *
- * @type {Readable<SERVICE[]>}
+ * The one of the returned GeoPose service to be used for localisation.
  */
-export const availableMessageBrokerServices = derived(
+const storedSelectedGeoPoseService = localStorage.getItem('selectedGeoPoseServiceStorage');
+export const selectedGeoPoseService = writable<Service | null>(JSON.parse(storedSelectedGeoPoseService || 'null'));
+selectedGeoPoseService.subscribe((value) => {
+    localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
+});
+
+export const availableMessageBrokerServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        const messageBrokerServices = [];
+        const messageBrokerServices: Service[] = [];
         for (const record of $ssr) {
             for (const service of record.services) {
                 if (service.type === 'message-broker') {
                     const urlParsed = new URL(service.url);
                     urlParsed.protocol = 'wss://'; // HACK: url comes in with https:// protocol, but this needs to be wss://
                     messageBrokerServices.push({ ...service, guid: `${record.id}-${service.id}`, url: urlParsed.href });
+                    // TODO: guid need to be fixed
                 }
             }
         }
@@ -266,42 +262,25 @@ export const availableMessageBrokerServices = derived(
 export const isRabbitmqConnectionTestSuccessful = writable(null);
 
 /**
- * The one of the returned GeoPose service to be used for localisation.
- *
- * @type {Writable<>}
- */
-const storedSelectedGeoPoseService = localStorage.getItem('selectedGeoPoseServiceStorage');
-export const selectedGeoPoseService = writable(storedSelectedGeoPoseService || 'none');
-selectedGeoPoseService.subscribe((value) => {
-    localStorage.setItem('selectedGeoPoseServiceStorage', value);
-});
-
-/**
  * Used to store the values of the most up to date localisation.
- *
- * @type {Writable<{floorpose: {}, geopose: {}}>}
  */
-export const recentLocalisation = writable({
+export const recentLocalisation = writable<{ geopose: Partial<Geopose>; floorpose: Partial<XRViewerPose> }>({
     geopose: {},
     floorpose: {},
 });
 
 /**
  * The ones of the received content services to be used to request content around the current location from.
- *
- * @type {}>}
  */
-export const selectedContentServices = writable({});
+export const selectedContentServices = writable<Record<string, { isSelected: boolean; selectedTopic: string }>>({});
 
 /**
  * The one of the returned p2p services to be used to set up a local peer to peer network.
- *
- * @type {Writable<SERVICE>}
  */
-const storedSelectedP2pService = localStorage.getItem('selectedP2pServiceStorage');
-export const selectedP2pService = writable(storedSelectedP2pService || 'none');
+const storedSelectedP2pService = JSON.parse(localStorage.getItem('selectedP2pServiceStorage') || 'null');
+export const selectedP2pService = writable<Service | null>(storedSelectedP2pService);
 selectedP2pService.subscribe((value) => {
-    localStorage.setItem('selectedP2pServiceStorage', value);
+    localStorage.setItem('selectedP2pServiceStorage', JSON.stringify(value));
 });
 
 /**
@@ -341,6 +320,7 @@ export const p2pNetworkState = writable('not connected');
  *
  * @type {Writable<string>}
  */
+// TODO: change to null or empty string instead
 export const peerIdStr = writable('none');
 
 /**
@@ -403,13 +383,17 @@ debug_enablePointCloudContents.subscribe((value) => {
  *
  * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
  */
-const storedDashboardDetail = JSON.parse(localStorage.getItem('dashboardDetail')) || { state: false, multiplayer: true, debug: true };
+const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
+    state: false,
+    multiplayer: true,
+    debug: true,
+};
 export const dashboardDetail = writable(storedDashboardDetail);
 dashboardDetail.subscribe((value) => {
     localStorage.setItem('dashboardDetail', JSON.stringify(value));
 });
 
-export const receivedScrs = writable([]);
+export const receivedScrs = writable<SCR[]>([]);
 
 /**
  * Used to store the target waypoint GeoPose where the robot has to go

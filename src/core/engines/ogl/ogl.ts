@@ -1,10 +1,14 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
 
-import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Polyline, Color } from 'ogl';
-import { createGltfProgram, createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
+import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Polyline, Color, type OGLRenderingContext, Program, Quat, Vec3 } from 'ogl';
+import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 
@@ -38,18 +42,23 @@ import {
 import { printOglTransform, checkGLError } from '@core/devTools';
 
 import { quat, vec3 } from 'gl-matrix';
+import type { ObjectDescription, Orientation, Position, ValueOf } from '../../../types/xr';
+import type { Geopose, SCR } from '@oarc/scd-access';
 
-let gl, renderer;
+let gl: OGLRenderingContext;
+let renderer: Renderer;
 let lastRenderTime = 0;
-let scene, camera, axesHelper;
-let updateHandlers = {},
-    eventHandlers = {};
-let uniforms = { time: [] };
-let _geo2ArTransformNode;
-let _ar2GeoTransformNode;
-let _globalImagePose;
-let _localImagePose;
-let experimentTapHandler = null;
+let scene: Transform;
+let camera: Camera;
+let axesHelper;
+let updateHandlers: Record<string, () => number> = {};
+let eventHandlers: Record<string, { model: Mesh; handler: () => void }> = {};
+let uniforms = { time: [] as Mesh<Geometry, Program>[] };
+let _geo2ArTransformNode: Transform;
+let _ar2GeoTransformNode: Transform;
+let _globalImagePose: Geopose;
+let _localImagePose: { position: Position; orientation: Orientation };
+let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 
 let dynamic_objects_descriptions = {};
 let dynamic_objects_meshes = {};
@@ -65,7 +74,7 @@ export default class ogl {
     init() {
         renderer = new Renderer({
             alpha: true,
-            canvas: document.querySelector('#application'),
+            canvas: document.querySelector('#application') as HTMLCanvasElement,
             dpr: window.devicePixelRatio,
             webgl: 2,
         });
@@ -80,7 +89,7 @@ export default class ogl {
 
         this.initScene();
 
-        window.addEventListener('resize', () => this.resize(gl), false);
+        window.addEventListener('resize', () => this.resize(), false);
         this.resize();
 
         document.addEventListener('click', this._handleEvent);
@@ -105,7 +114,11 @@ export default class ogl {
         // in the scene sometimes is painted not from its own texture but from the camera image texture.
         // To overcome this problem, we create an OGL texture here which we will never use but it reserves ID 0 in view of OGL.
         loadLogoTexture(gl, '/media/icons/icon_x48.png').then((texture) => {
-            console.log('DUmmy TEXID: ' + texture.id);
+            if (texture === undefined) {
+                console.log('Error: logo texture ID is undefined!');
+                return;
+            }
+            console.log('Dummy TEXTURE ID: ' + texture.id);
             const dummyProgram = createLogoProgram(gl, texture);
             const dummyGeometry = new Plane(gl, { width: 0.1, height: 0.1 });
             const dummyMesh = new Mesh(gl, {
@@ -123,12 +136,12 @@ export default class ogl {
     /**
      * Add a general placeholder to the scene.
      *
-     * @param keywords  string[]        Defines the kind of placeholder to create
+     * @param keywords  string        Defines the kind of placeholder to create
      * @param position  number{x, y, z}        3D position of the placeholder
      * @param orientation  number{x, y, z, w}     Orientation of the placeholder
      * @returns {Transform}
      */
-    addPlaceholder(keywords, position, orientation) {
+    addPlaceholder(keywords: string | string[] | undefined, position: Position, orientation: Orientation) {
         const placeholder = getDefaultPlaceholder(gl);
 
         placeholder.position.set(position.x, position.y, position.z);
@@ -160,7 +173,7 @@ export default class ogl {
      * @param fragmentShader  String        Fragment-Shader to add to program
      * @param options  Object       Defines additional options for the shape to add
      */
-    addPlaceholderWithOptions(shape, position, orientation, fragmentShader, options = {}) {
+    addPlaceholderWithOptions(shape: ValueOf<typeof PRIMITIVES>, position: Position, orientation: Orientation, fragmentShader: string, options: any = {}) {
         const placeholder = createModel(gl, shape, [Math.random(), Math.random(), Math.random(), 1], false, options);
 
         placeholder.position.set(position.x, position.y, position.z);
@@ -187,9 +200,8 @@ export default class ogl {
      * @param url  String       URL to load the model from
      * @returns {Transform}
      */
-    addModel(position, orientation, url) {
-        console.log('OGL addModel ' + url);
-        const gltfScene = new Transform();
+    addModel(position: Position, orientation: Orientation, url: string) {
+        const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
         gltfScene.position.set(position.x, position.y, position.z);
         gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         gltfScene.setParent(scene);
@@ -197,13 +209,14 @@ export default class ogl {
         console.log('Loading ' + url);
         GLTFLoader.load(gl, url)
             .then((gltf) => {
-                const s = gltf.scene || gltf.scenes[0];
+                const s = (gltf.scene || gltf.scenes[0]) as Transform[];
                 s.forEach((root) => {
                     root.setParent(gltfScene);
                     root.traverse((node) => {
-                        if (node.program) {
-                            //node.program = createGltfProgram(node);
-                            node.program = createSimpleGltfProgram(node);
+                        if ((node as any).program) {
+                            // TODO: cast node to Mesh
+                            // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
+                            (node as any).program = createSimpleGltfProgram(node);
                         }
                     });
                 });
@@ -228,9 +241,8 @@ export default class ogl {
      *
      * @param position  number{x, y, z}        3D position of the placeholder
      * @param orientation  number{x, y, z, w}     Orientation of the placeholder
-     * @returns {Transform}
      */
-    addExperiencePlaceholder(position, orientation) {
+    addExperiencePlaceholder(position: Position, orientation: Orientation): Mesh {
         const placeholder = getExperiencePlaceholder(gl);
 
         placeholder.position.set(position.x, position.y, position.z);
@@ -265,7 +277,7 @@ export default class ogl {
         return this.addModel({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, '/media/models/reticle.gltf');
     }
 
-    isHorizontal(object) {
+    isHorizontal(object: { quaternion: Quat }) {
         const euler = new Euler().fromQuaternion(object.quaternion);
         return Math.abs(euler.x) < Number.EPSILON;
     }
@@ -277,9 +289,9 @@ export default class ogl {
      * @param orientation  number{x, y, z, w}     Orientation of the object
      * @returns {Mesh}
      */
-    addRandomObject(position, orientation) {
+    addRandomObject(position: Position, orientation: Orientation) {
         let object_description = createRandomObjectDescription();
-        return addObject(position, orientation, object_description);
+        return this.addObject(position, orientation, object_description);
     }
 
     /**
@@ -290,7 +302,7 @@ export default class ogl {
      * @param object_description  {*}
      * @returns {Mesh}
      */
-    addObject(position, orientation, object_description) {
+    addObject(position: Position, orientation: Orientation, object_description: ObjectDescription) {
         console.log('OGL addObject: ' + object_description);
         const mesh = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
         mesh.position.set(position.x, position.y, position.z);
@@ -416,7 +428,7 @@ export default class ogl {
      * @param position  number{x, y, z}        3D position of the placeholder
      * @param orientation  number{x, y, z, w}     Orientation of the placeholder
      */
-    updateMarkerObjectPosition(object, position, orientation) {
+    updateMarkerObjectPosition(object: Mesh, position: Position, orientation: Orientation) {
         object.position.set(position.x, position.y, position.z);
         object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
@@ -428,7 +440,7 @@ export default class ogl {
      * @param position  Ved3       The position to move the reticle to
      * @param orientation  Quaternion       The rotation to apply to the reticle
      */
-    updateReticlePose(reticle, position, orientation) {
+    updateReticlePose(reticle: Transform, position: Position, orientation: Orientation) {
         reticle.position.set(position.x, position.y, position.z);
         reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
@@ -495,7 +507,7 @@ export default class ogl {
      * @param model  Mesh       The model to make interactive
      * @param handler  function     The function to execute after interaction
      */
-    addClickEvent(model, handler) {
+    addClickEvent(model: Mesh, handler: () => void) {
         eventHandlers[model.id] = {
             model,
             handler,
@@ -509,9 +521,10 @@ export default class ogl {
      * @param experienceMatrix  Mat4        The matrix of the experience in WebR space
      * @returns {{camerapose: Mat4, projection: Mat4}}
      */
-    getExternalCameraPose(view, experienceMatrix) {
+    getExternalCameraPose(view: XRView, experienceMatrix: Mat4) {
         const cameraMatrix = new Mat4();
-        cameraMatrix.copy(experienceMatrix).inverse().multiply(view.transform.matrix);
+        // TODO: make sure that fromArray understands matrix in correct order
+        cameraMatrix.copy(experienceMatrix).inverse().multiply(new Mat4().fromArray(view.transform.matrix));
 
         return {
             projection: view.projectionMatrix,
@@ -527,7 +540,7 @@ export default class ogl {
      * @returns {function}
      */
     getRootSceneUpdater() {
-        return (matrix) => (scene.matrix = new Mat4().fromArray(matrix));
+        return (matrix: number[]) => (scene.matrix = new Mat4().fromArray(matrix));
     }
 
     /**
@@ -537,7 +550,7 @@ export default class ogl {
      *
      * @param model     The model to change
      */
-    setWaiting(model) {
+    setWaiting(model: Mesh) {
         model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
         uniforms.time[model.id] = model;
     }
@@ -549,7 +562,7 @@ export default class ogl {
      *
      * @param callback  Function        The function to call
      */
-    setExperimentTapHandler(callback) {
+    setExperimentTapHandler(callback: (e: { x: number; y: number }) => void) {
         experimentTapHandler = callback;
     }
 
@@ -579,8 +592,7 @@ export default class ogl {
      *
      * @param model     The model to remove
      */
-    remove(model) {
-        console.log('OGL remove object ' + model.id);
+    remove(model: Mesh) {
         // TODO: this assumes that all objects are children of the root node!
         // We should call something like model.parent.removeChild(model);
         scene.removeChild(model);
@@ -600,7 +612,7 @@ export default class ogl {
 
         // normal models
         while (scene.children.length > 0) {
-            let child = scene.children[0];
+            let child: Transform | null = scene.children[0];
             scene.removeChild(child);
             child = null;
         }
@@ -629,13 +641,14 @@ export default class ogl {
      * @param time  Number      Provided by WebXR
      * @param view  XRView      Provided by WebXR
      */
-    render(time, view) {
+    render(time: number, view: XRView) {
         checkGLError(gl, 'OGL render() begin');
 
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
-        camera.projectionMatrix.copy(view.projectionMatrix);
+        // TODO: make sure that fromArray understands matrix in correct order
+        camera.projectionMatrix.copy(new Mat4().fromArray(view.projectionMatrix));
         camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
@@ -659,11 +672,11 @@ export default class ogl {
      *
      * @param event  Event      Javascript event object
      */
-    _handleEvent(event) {
+    _handleEvent(event: { x: number; y: number }) {
         const mouse = new Vec2();
         mouse.set(2.0 * (event.x / renderer.width) - 1.0, 2.0 * (1.0 - event.y / renderer.height) - 1.0);
 
-        const raycast = new Raycast(gl);
+        const raycast = new Raycast();
         raycast.castMouse(camera, mouse);
 
         const eventMeshes = Object.values(eventHandlers).map((handler) => handler.model);
@@ -686,7 +699,7 @@ export default class ogl {
      * @param {*} localImagePose The local pose of the photo
      * @param {*} globalImagePose The global pose of the photo
      */
-    updateGeoAlignment(localImagePose, globalImagePose) {
+    updateGeoAlignment(localImagePose: { orientation: Orientation; position: Position }, globalImagePose: Geopose) {
         // NOTE:
         // The GeoPose location coordinates are in local tangent plane (LTP) approximation, in
         // East-North-Up (ENU) right-handed coordinate system
@@ -785,7 +798,9 @@ export default class ogl {
      * @param {*} globalObjectPose GeoPose of the content
      * @param {*} content The content entry
      */
-    addSpatialContentRecord(globalObjectPose, content) {
+    addSpatialContentRecord(globalObjectPose: Geopose, content: SCR) {
+        // TODO: implement general content placement
+        console.log('Warning: content placement is not implemented yet!')
         const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]); // gray
 
         // calculate relative position w.r.t the camera in ENU system
@@ -808,7 +823,7 @@ export default class ogl {
         scene.updateMatrixWorld(true);
     }
 
-    convertGeoPoseToLocalPose(geoPose) {
+    convertGeoPoseToLocalPose(geoPose: Geopose) {
         if (_geo2ArTransformNode === undefined) {
             throw 'No localization has happened yet!';
         }
@@ -821,7 +836,7 @@ export default class ogl {
         transform.position.set(webxrEnuPosition[0], webxrEnuPosition[1], webxrEnuPosition[2]);
 
         // The geoPose orientation is given in ENU, but we must convert the directions to WebXR first
-        const enuQuaternion = [geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w];
+        const enuQuaternion = [geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w] as const;
         const webxrEnuQuaternion = convertGeo2WebQuat(enuQuaternion); // conversion from ENU axes to WebXR axes, but keep the orientation
         transform.quaternion.set(webxrEnuQuaternion[0], webxrEnuQuaternion[1], webxrEnuQuaternion[2], webxrEnuQuaternion[3]);
 
@@ -836,7 +851,7 @@ export default class ogl {
         return localPose;
     }
 
-    convertLocalPoseToGeoPose(position, quaternion) {
+    convertLocalPoseToGeoPose(position: Vec3, quaternion: Quat) {
         if (_ar2GeoTransformNode === undefined) {
             throw 'No localization has happened yet!';
         }
@@ -888,7 +903,7 @@ export default class ogl {
      * @param {*} refGeoPose reference GeoPose
      * @returns
      */
-    geoPose_to_ENU(geoPose, refGeoPose) {
+    geoPose_to_ENU(geoPose: Geopose, refGeoPose: Geopose) {
         let enuPosition = convertGeodeticToEnu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h, refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
 
         let enuPose = new Transform();

@@ -1,25 +1,31 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
-<script>
+<script lang="ts">
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
-    import { writable } from 'svelte/store';
+    import { writable, type Writable } from 'svelte/store';
+    import { type OldFormatGeopose, type Orientation, type Position, type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
 
     import { v4 as uuidv4 } from 'uuid';
 
-    import { userOnRobotPathBlinkingAlert } from '@src/stateStore';
-    import { sendRequest, validateRequest } from '@oarc/gpp-access';
-    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
-    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
-    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access/request/options/CameraParam.js';
-    import { IMAGEFORMAT } from '@oarc/gpp-access/GppGlobals.js';
+    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { GeoPoseRequest } from '@oarc/gpp-access';
+    import { ImageOrientation } from '@oarc/gpp-access';
+    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
+    import { IMAGEFORMAT } from '@oarc/gpp-access';
 
-    import { getContentsAtLocation } from '@oarc/scd-access';
+    import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
+
+    import { userOnRobotPathBlinkingAlert } from '@src/stateStore';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
 
@@ -44,32 +50,39 @@
     import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
 
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
+    import type webxr from '../core/engines/webxr';
+    import type ogl from '../core/engines/ogl/ogl';
+    import type { Mat4, Mesh, Quat, Vec3 } from 'ogl';
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
 
-    const message = (msg) => console.log(msg);
+    const message = (msg: string) => console.log(msg);
 
-    let canvas, overlay, externalContent, closeExperience;
-    let xrEngine, tdEngine;
+    let canvas: HTMLCanvasElement;
+    let overlay: HTMLElement;
+    let externalContent: HTMLIFrameElement;
+    let closeExperience: HTMLImageElement;
+    let xrEngine: webxr;
+    let tdEngine: ogl;
 
     let doCaptureImage = false;
     let experienceLoaded = false;
-    let experienceMatrix = null;
-    let firstPoseReceived = false;
-    let hasLostTracking = true;
+    let experienceMatrix: Mat4 | null = null;
+    let firstPoseReceived = false,
+        hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
 
-    const context = getContext('state') || writable();
-    $context = {
+    const context: Writable<{ showFooter: boolean; isLocalized: boolean; isLocalizing: boolean; isLocalisationDone: boolean; receivedContentTitles: any[] }> = getContext('state') || writable();
+    context.set({
         showFooter: false,
         isLocalized: false,
         isLocalizing: false, // while waiting for GeoPose service localization
         isLocalisationDone: false, // whether to show the dom-overlay with 'localize' button
         receivedContentTitles: [],
-    };
+    });
 
     onDestroy(() => {
         tdEngine.stop();
@@ -80,9 +93,8 @@
      *
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
-     * @param options  {*}       Options provided from caller. Currently settings for experiment mode
      */
-    export function startAr(thisWebxr, this3dEngine, options) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
@@ -100,8 +112,15 @@
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export async function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback, setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
-        const options = {
+    export async function startSession(
+        xrFrameUpdateCallback: XrFrameUpdateCallbackType,
+        xrSessionEndedCallback: () => void,
+        xrNoPoseCallback: XrNoPoseCallbackType,
+        setup: SetupFunction = () => {},
+        requiredFeatures: XrFeatures[] = [],
+        optionalFeatures: XrFeatures[] = [],
+    ) {
+        const options: { requiredFeatures: XrFeatures[]; optionalFeatures: XrFeatures[]; domOverlay?: { root: HTMLElement } } = {
             requiredFeatures: requiredFeatures,
             optionalFeatures: optionalFeatures,
         };
@@ -119,15 +138,17 @@
             startOrientationSensor();
         }
 
-        promise
-            .then(() => {
-                xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
-                tdEngine.init();
-            })
-            .catch((error) => {
-                unableToStartSession = true;
-                message('WebXR Immersive AR failed to start: ' + error);
-            });
+        if (promise) {
+            promise
+                .then(() => {
+                    xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
+                    tdEngine.init();
+                })
+                .catch((error) => {
+                    unableToStartSession = true;
+                    message('WebXR Immersive AR failed to start: ' + error);
+                });
+        }
     }
 
     /**
@@ -138,9 +159,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-    export function onXrFrameUpdate(time, frame, floorPose) {
-        hasLostTracking = false;
-
+    export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -155,16 +174,16 @@
 
             handleExternalExperience(view);
 
-            // Currently it is necessary to capture the camera image at every frame in order to keep the camera-access feature alive.
-            let cameraTexture = null;
-            let cameraIntrinsics = null;
-            let cameraViewport = null;
+            // Currently necessary to keep camera image capture alive.
+            let cameraTexture: WebGLTexture | undefined | null | undefined = null;
+            let cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number } | null | undefined = null;
+            let cameraViewport: { width: number; height: number; x: number; y: number } | null | undefined = null;
             if (!$context.isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
                 const res = xrEngine.getCameraTexture2(view); // new Chrome 92
-                cameraTexture = res.cameraTexture;
-                cameraIntrinsics = res.cameraIntrinsics;
-                cameraViewport = res.cameraViewport;
+                cameraTexture = res?.cameraTexture;
+                cameraIntrinsics = res?.cameraIntrinsics;
+                cameraViewport = res?.cameraViewport;
             }
 
             if (doCaptureImage) {
@@ -174,52 +193,65 @@
                 //const imageHeight = viewport.height; // old Chrome 91
                 //const imageWidth = view.camera.width; // new Chrome 92
                 //const imageHeight = view.camera.height; // new Chrome 92
-                const imageWidth = cameraViewport.width;
-                const imageHeight = cameraViewport.height;
+                const imageWidth = cameraViewport?.width;
+                const imageHeight = cameraViewport?.height;
 
-                let image = null; // base64 encoded
+                let image: Promise<string> | null = null; // base64 encoded
                 if ($debug_loadCameraImage) {
+                    // This is only for development while running your own Sparcl server.
                     // TODO: intrinsics could be also loaded separately
-                    let url = '/photos/your_photo.jpg'; // place the photo into the photos subfolder
+                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the public/photos subfolder
                     image = loadImageBase64(debug_CameraImageUrl);
-                } else {
-                    image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
+                } else if (cameraTexture && imageWidth && imageHeight) {
+                    image = Promise.resolve(xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight));
                 }
 
                 // Save image and append captured camera image to body to verify if it was captured correctly
                 if ($debug_saveCameraImage) {
                     const docImage = new Image();
-                    docImage.src = image;
-                    document.body.appendChild(docImage);
-
-                    saveImageBase64(image, 'your_photo');
-                    saveText(JSON.stringify(cameraIntrinsics), 'your_photo_intrinsics');
-                    saveText(JSON.stringify(cameraViewport), 'your_photo_viewport');
+                    if (image) {
+                        image.then((img) => {
+                            docImage.src = img;
+                            document.body.appendChild(docImage);
+                            saveImageBase64(img, 'your_photo');
+                            saveText(JSON.stringify(cameraIntrinsics), 'your_photo_intrinsics');
+                            saveText(JSON.stringify(cameraViewport), 'your_photo_viewport');
+                        });
+                    }
                 }
 
-                localize(image, imageWidth, imageHeight, cameraIntrinsics)
-                    .then(([geoPose, optionalScrs]) => {
-                        // Save the local pose and the global pose of the image for alignment in a later step
-                        $recentLocalisation.geopose = geoPose;
-                        $recentLocalisation.floorpose = floorPose;
-                        onLocalizationSuccess(floorPose, geoPose);
+                if (image != null && imageWidth != null && imageHeight != null && cameraIntrinsics != null) {
+                    image
+                        .then((img) => {
+                            return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
+                        })
+                        .then(({ cameraGeoPose, optionalScrs }) => {
+                            // Save the local pose and the global pose of the image for alignment in a later step
+                            $recentLocalisation.geopose = cameraGeoPose;
+                            $recentLocalisation.floorpose = floorPose;
+                            onLocalizationSuccess(floorPose, cameraGeoPose);
 
-                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
-                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
-                        //if (optionalScrs) {
-                        //    return [optionalScrs];
-                        //}
+                            // There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
+                            // We could return only those as [optionalScrs], however, this means all other content services are ignored...
+                            //if (optionalScrs) {
+                            //return [optionalScrs];
+                            //}
+                            // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
 
-                        // Instead of returning [optionalScrs], we request content from all available content services
-                        // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
-                        let scrsPromises = getContentsInH3Cell();
-                        return scrsPromises;
-                    })
-                    .then((scrs) => {
-                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
-                        console.log('Received ' + scrs.length + ' SCRs');
-                        placeContent(scrs);
-                    });
+                            // We request content from all available content services
+                            // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
+                            let scrsPromises = getContentsInH3Cell();
+                            return scrsPromises;
+                        })
+                        .then((scrs) => {
+                            // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                            console.log(`Received scrs from ${scrs.length} servers`);
+                            scrs.forEach((scr) => {
+                                console.log(`Received ${scr.length} scrs from this server`);
+                            });
+                            placeContent(scrs);
+                        });
+                }
             }
 
             tdEngine.render(time, view);
@@ -243,12 +275,12 @@
     /**
      * Called when no pose was reported from WebXR.
      *
-     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     * @param time time offset at which the updated
      *      viewer state was received from the WebXR device.
-     * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param frame The XRFrame provided to the update loop
+     * @param floorPose The pose of the device as reported by the XRFrame
      */
-    export function onXrNoPose(time, frame, floorPose) {
+    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -261,14 +293,27 @@
         $context.isLocalizing = true;
     }
 
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    }
+
     /**
      * Send the required information to an external experience, to allow it to stay in sync with the local one.
      *
-     * @param view  XRView      The view to use
+     * @param view The view to use
      */
-    export function handleExternalExperience(view) {
+    export function handleExternalExperience(view: XRView) {
         if (experienceLoaded === true) {
-            externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            if (experienceMatrix == null) {
+                throw new Error('experienceMatrix is null!');
+            }
+            externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
         }
     }
 
@@ -283,8 +328,8 @@
      * @param height  Number    Height of the camera image
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    export function localize(image, width, height, cameraIntrinsics) {
-        return new Promise((resolve, reject) => {
+    export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
+        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -300,7 +345,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve([selfEstimatedGeoPose]);
+                    resolve({ cameraGeoPose: selfEstimatedGeoPose, optionalScrs: [] });
                 });
                 return;
             }
@@ -310,6 +355,8 @@
             cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
 
             //TODO: check ImageOrientation!
+            //TODO: pass width and height as numbers
+            //TODO: add width and height into CameraParams (too)
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
@@ -317,52 +364,51 @@
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
 
-            sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
-                .then((data) => {
-                    $context.isLocalizing = false;
-                    $context.isLocalized = true;
-                    wait(4000).then(() => {
-                        $context.showFooter = false;
-                        $context.isLocalisationDone = true;
+            if ($selectedGeoPoseService?.url) {
+                sendRequest($selectedGeoPoseService?.url, JSON.stringify(geoPoseRequest))
+                    .then((data) => {
+                        $context.isLocalizing = false;
+                        $context.isLocalized = true;
+                        wait(4000).then(() => {
+                            $context.showFooter = false;
+                            $context.isLocalisationDone = true;
+                        });
+                        console.log('GPP response:');
+                        console.log(data);
+
+                        // GeoPoseResp
+                        // https://github.com/OpenArCloud/oscp-geopose-protocol
+                        let cameraGeoPose = null;
+                        // NOTE: AugmentedCity also can also return neighboring objects in the GPP response
+                        let optionalScrs: SCR[] = [];
+                        if (data.geopose != undefined && (data as any).scrs != undefined && (data.geopose as any).geopose != undefined) {
+                            // data is AugmentedCity format which contains other entries too
+                            // (for example AC /geopose_objs endpoint)
+                            cameraGeoPose = (data.geopose as any).geopose;
+                            optionalScrs = (data as any).scrs;
+                            console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
+                        } else if (data.geopose != undefined) {
+                            // data is GeoPoseResp
+                            // (for example AC /geopose endpoint)
+                            cameraGeoPose = data.geopose;
+                        } else {
+                            const errorMessage = 'GPP response has no geopose field';
+                            console.log(errorMessage);
+                            throw errorMessage;
+                        }
+
+                        console.log('IMAGE GeoPose:');
+                        console.log(cameraGeoPose);
+
+                        resolve({ cameraGeoPose, optionalScrs });
+                    })
+                    .catch((error) => {
+                        // TODO: Inform user
+                        $context.isLocalizing = false;
+                        console.error('Could not localize. Error: ' + error);
+                        reject(error);
                     });
-                    console.log('GPP response:');
-                    console.log(data);
-
-                    // GeoPoseResp
-                    // https://github.com/OpenArCloud/oscp-geopose-protocol
-                    let cameraGeoPose = null;
-                    if (data.geopose != undefined && data.scrs != undefined && data.geopose.geopose != undefined) {
-                        // data is AugmentedCity format which contains other entries too
-                        // (for example AC /scrs/geopose_objs_local endpoint)
-                        cameraGeoPose = data.geopose.geopose;
-                    } else if (data.geopose != undefined) {
-                        // data is GeoPoseResp
-                        // (for example AC /scrs/geopose endpoint)
-                        cameraGeoPose = data.geopose;
-                    } else {
-                        errorMessage = 'GPP response has no geopose field';
-                        console.log(errorMessage);
-                        throw errorMessage;
-                    }
-
-                    console.log('IMAGE GeoPose:');
-                    console.log(cameraGeoPose);
-
-                    // NOTE: AugmentedCity also returns neighboring objects in the GPP response
-                    let optionalScrs = undefined;
-                    if (data.scrs != undefined) {
-                        optionalScrs = data.scrs;
-                        console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
-                    }
-
-                    resolve([cameraGeoPose, optionalScrs]);
-                })
-                .catch((error) => {
-                    // TODO: Inform user
-                    $context.isLocalizing = false;
-                    console.error('Could not localize. Error: ' + error);
-                    reject(error);
-                });
+            }
         });
     }
 
@@ -388,7 +434,7 @@
      * Request content from SCD available around the current location.
      */
     export function getContentsInH3Cell() {
-        const servicePromises = $availableContentServices.reduce((result, service) => {
+        const servicePromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
                 // TODO: H3 cell ID and topic should be be customizable
                 let scrs_ = getContentsAtLocation(service.url, 'history', $initialLocation.h3Index);
@@ -400,23 +446,12 @@
         return Promise.all(servicePromises);
     }
 
-    /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
-     */
-    export function onLocalizationSuccess(localPose, globalPose) {
-        let localImagePose = localPose.transform;
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
-    }
-
     /**
      *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export function placeContent(scrs) {
+    export function placeContent(scrs: SCR[][]) {
         let showContentsLog = false;
-
         scrs.forEach((response) => {
             //console.log('Number of content items received: ', response.length);
 
@@ -465,27 +500,28 @@
                         let position = localObjectPose.position;
                         let orientation = localObjectPose.quaternion;
 
+                        // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
                         // kept for backward compatibility and will be removed
                         //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                        if (record.content.custom_data?.sticker_subtype != undefined) {
-                            const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                            const url = record.content.custom_data.path;
+                        // if (record.content.custom_data?.sticker_subtype != undefined) {
+                        //     const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        //     const url = record.content.custom_data.path;
 
-                            // TODO: Receive list of events to register to from SCD and register them here
-                            switch (subtype) {
-                                case 'scene':
-                                    const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                                    tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                                    break;
-                                case 'gltf':
-                                    tdEngine.addModel(position, orientation, url);
-                                    break;
-                                default:
-                                    console.log('Error: unexpected sticker subtype: ' + subtype);
-                                    break;
-                            }
-                        } else if (record.content.refs != undefined && record.content.refs.length > 0) {
+                        //     // TODO: Receive list of events to register to from SCD and register them here
+                        //     switch (subtype) {
+                        //         case 'scene':
+                        //             const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                        //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                        //             break;
+                        //         case 'gltf':
+                        //             tdEngine.addModel(position, orientation, url);
+                        //             break;
+                        //         default:
+                        //             console.log('Error: unexpected sticker subtype: ' + subtype);
+                        //             break;
+                        //     }
+                        if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
                             // TODO load all, not only first reference
                             const contentType = record.content.refs[0].contentType;
@@ -506,17 +542,20 @@
                         }
                         break;
                     }
+
                     case 'ephemeral': {
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
-                            //console.log("ISMAR2021demo object received!")
-                            let object_description = record.content.object_description;
+                            console.log('ISMAR2021demo object received!');
+                            // TODO: the object_description is not standard data; it is only used for the ismar2021 demo
+                            let object_description = (record.content as any).object_description;
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                         }
                         break;
                     }
+
                     case 'geopose_stream': {
                         // IROS2022 demo
                         if (record.tenant === 'IROS2022demo') {
@@ -533,6 +572,7 @@
                         }
                         break;
                     }
+
                     case 'sensor_stream': {
                         let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
                             return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
@@ -627,7 +667,7 @@
      * @param orientation  Orientation      The orientation of the experience
      * @param url  String       The URL to load the experience from
      */
-    export function experienceLoadHandler(placeholder, position, orientation, url) {
+    export function experienceLoadHandler(placeholder: Mesh, position: Position, orientation: Orientation, url: string) {
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;
@@ -666,7 +706,7 @@
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function onNetworkEvent(events) {
+    export function onNetworkEvent(events: any) {
         // simply print for now
         console.log('Viewer: event received:');
         console.log(events);

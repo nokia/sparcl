@@ -1,13 +1,17 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Content of the introduction overlay.
 -->
 
-<script>
+<script lang="ts">
     import { createEventDispatcher } from 'svelte';
 
     import { Swipeable, Screen, Controls } from 'thumb-ui';
@@ -31,8 +35,8 @@
     import { ARMODES } from '@core/common';
 
     export let withOkFooter = true;
-    export let shouldShowDashboard;
-    export let shouldShowUnavailableInfo;
+    export let shouldShowDashboard: boolean;
+    export let shouldShowUnavailableInfo: boolean | null;
     export let isLocationAccessRefused = false;
 
     // Used to dispatch events to parent
@@ -60,11 +64,11 @@
 
         {#if withOkFooter}
             {#if !$isLocationAccessAllowed}
-                <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')}>
+                <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>
                     {$allowLocationLabel}
                 </button>
             {:else}
-                <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')}>
+                <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
                     {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
                 </button>
             {/if}
@@ -83,7 +87,7 @@
                 <h4>{$locationaccessrequired}</h4>
                 <p>{@html $locationaccessinfo}</p>
                 <img src="/media/overlay/marker.png" alt="location marker" />
-                <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
+                <button on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
             {:else}
                 <h4 id="locationgranted">{$locationaccessgranted}</h4>
                 <img src="/media/overlay/marker.png" alt="location marker" />
@@ -99,7 +103,7 @@
                 <h4>{$noservicesavailable}</h4>
                 <div>{$unavailableInfo}</div>
                 {#if withOkFooter}
-                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('dashboardAction')}>
+                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('dashboardAction')} on:keydown={() => dispatch('dashboardAction')}>
                         {$dashboardOkLabel}
                     </button>
                 {/if}
@@ -110,7 +114,7 @@
                     <p>{$arMode} mode active</p>
                 {/if}
                 {#if withOkFooter}
-                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')}>
+                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
                         {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
                     </button>
                 {/if}

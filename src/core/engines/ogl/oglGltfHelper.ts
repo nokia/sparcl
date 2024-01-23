@@ -1,6 +1,15 @@
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 // code from OGL example https://github.com/oframe/ogl/blob/master/examples/load-gltf.html
 
-import { Program, TextureLoader, Vec3 } from 'ogl';
+import { Program, TextureLoader, Transform, Vec3 } from 'ogl';
 
 const complex_shader = {
     vertex: /* glsl */ `
@@ -268,7 +277,7 @@ const complex_shader = {
     `,
 };
 
-export function createGltfProgram(node) {
+export function createGltfProgram(node: any) {
     const gltf = node.program.gltfMaterial || {};
     let { vertex, fragment } = complex_shader;
 

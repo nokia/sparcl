@@ -1,17 +1,20 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     This component displays the internals of the app, and allows to change them when possible.
     Temporary until better UX is found for the settings.
 -->
-<script>
-    import ColorPicker from 'svelte-awesome-color-picker';
-    import { createEventDispatcher, onMount } from 'svelte';
-
-    import { supportedCountries } from '@oarc/ssd-access';
+<script lang="ts">
+    import { ColorPicker } from 'svelte-awesome-color-picker';
+    import { createEventDispatcher, onMount, type ComponentType } from 'svelte';
+    import { supportedCountries, type Service } from '@oarc/ssd-access';
 
     import {
         showDashboard,
@@ -40,6 +43,7 @@
         myAgentColor,
         myAgentName,
         availableMessageBrokerServices,
+        activeExperiment,
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -47,12 +51,12 @@
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
-    import Selector from '@experiments/Selector';
+    import Selector from '@experiments/Selector.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let experimentDetail = null;
+    let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
 
     let rmqTestPromise;
     onMount(() => {
@@ -60,20 +64,20 @@
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
     });
 
-    function handleContentServiceSelection(event, service) {
+    function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
         if (!$selectedContentServices[service.id]) {
-            $selectedContentServices[service.id] = {};
+            $selectedContentServices[service.id] = { isSelected: event.currentTarget.checked, selectedTopic: '' };
         }
 
-        $selectedContentServices[service.id].isSelected = event.target.checked;
+        $selectedContentServices[service.id].isSelected = event.currentTarget.checked;
     }
 
-    function handleContentServiceTopicSelection(event, service, topic) {
+    function handleContentServiceTopicSelection(service: Service, topic: string) {
         $selectedContentServices[service.id].selectedTopic = topic;
     }
 </script>
 
-<button id="go-immersive-button" on:click={() => dispatch('okClicked')}>Go immersive</button>
+<button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
     <summary>Application state</summary>
@@ -98,7 +102,9 @@
         <dd>{$initialLocation.countryCode}</dd>
         <dt>OSCP Region</dt>
         <!--  TODO: Might make sense to do some validation here  -->
-        <dd class="list"><input list="supported-countries" bind:value={$initialLocation.regionCode} /></dd>
+        <dd class="list">
+            <input list="supported-countries" bind:value={$initialLocation.regionCode} />
+        </dd>
     </dl>
 
     <dl class="radio connected">
@@ -127,7 +133,7 @@
             <dd class="select">
                 <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
                     {#if $availableGeoPoseServices.length === 0}
-                        <option value="none" disabled selected>Device sensors (no VPS available)</option>
+                        <option value={null} disabled selected>Device sensors (no VPS available)</option>
                         <!--{debug_useGeolocationSensors.set(true)}-->
                     {:else}
                         {#each $availableGeoPoseServices as service}
@@ -144,7 +150,9 @@
 
         <dl>
             <dt>Recent GeoPose</dt>
-            <dd class="autoheight"><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
+            <dd class="autoheight">
+                <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
+            </dd>
             <!--    TODO: Values aren't displayed for some reason. Fix. -->
             <!--    <dt>at</dt>-->
             <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
@@ -162,8 +170,8 @@
                     />
                     <label for="selectedContentService_{service.id}">{service.title}</label>
                     <pre class="serviceurl">
-                <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-            </pre>
+                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
+                    </pre>
 
                     {#if service?.properties}
                         <ul>
@@ -177,7 +185,7 @@
                                                 name={service.id}
                                                 disabled={!$selectedContentServices[service.id]?.isSelected}
                                                 checked={$selectedContentServices[service.id]?.selectedTopic === topic}
-                                                on:change={(event) => handleContentServiceTopicSelection(event, service, topic)}
+                                                on:change={(event) => handleContentServiceTopicSelection(service, topic)}
                                             />
                                             <label for="contenttopic">{topic}</label>
                                         </li>
@@ -198,7 +206,9 @@
             <dt>Marker image</dt>
             <dd>{$currentMarkerImage}</dd>
             <dt><label for="markerwidth">Width</label></dt>
-            <dd class="unitinput"><input id="markerwidth" type="number" bind:value={$currentMarkerImageWidth} />m</dd>
+            <dd class="unitinput">
+                <input id="markerwidth" type="number" bind:value={$currentMarkerImageWidth} />m
+            </dd>
         </dl>
     {/if}
 
@@ -224,18 +234,23 @@
                 </dd>
             {:else if $creatorModeSettings.type === CREATIONTYPES.model}
                 <dt><label for="modelurl">URL</label></dt>
-                <dd class="area"><textarea id="modelurl" bind:value={$creatorModeSettings.modelurl}></textarea></dd>
+                <dd class="area">
+                    <textarea id="modelurl" bind:value={$creatorModeSettings.modelurl}></textarea>
+                </dd>
             {:else}
                 <dt><label for="sceneurl">URL</label></dt>
-                <dd class="area"><textarea id="sceneurl" bind:value={$creatorModeSettings.sceneurl}></textarea></dd>
+                <dd class="area">
+                    <textarea id="sceneurl" bind:value={$creatorModeSettings.sceneurl}></textarea>
+                </dd>
             {/if}
         </dl>
     {/if}
 
     {#if $arMode === ARMODES.experiment}
         <dl>
-            <dt><label>Type</label></dt>
-            <dd class="select">
+            <dt><label for="experimentselector">Type</label></dt>
+            <dd class="select" id="experimentselector">
+                <!-- TODO: there is a problem with passing the value. we guess thsi should be the default value of the selector -->
                 <Selector
                     value={$experimentModeSettings?.active}
                     on:change={(event) => {
@@ -245,7 +260,7 @@
                             $experimentModeSettings = {};
                         }
 
-                        $experimentModeSettings.active = experimentDetail.key;
+                        $activeExperiment = experimentDetail.key;
                         if ($experimentModeSettings[experimentDetail.key] === undefined) $experimentModeSettings[experimentDetail.key] = {};
                     }}
                 />
@@ -323,7 +338,7 @@
         <dd class="select">
             <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2 || $allowP2pNetwork === false}>
                 {#if $availableP2pServices.length === 0}
-                    <option>None</option>
+                    <option value={null}>None</option>
                 {:else}
                     {#each $availableP2pServices as service}
                         <option value={service}>{service.title}</option>
@@ -333,7 +348,7 @@
         </dd>
         <pre class="serviceurl">
             <label>URL: {$selectedP2pService?.url || 'no url'}</label>
-            {#if $selectedP2pService.properties != undefined && $selectedP2pService.properties.length != 0}
+            {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
                 {#each $selectedP2pService.properties as prop}
                     <label>{prop.type}: {prop.value}<br /></label>
                 {/each}

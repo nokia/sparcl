@@ -1,6 +1,15 @@
-import { Program, Geometry, Transform, Plane, Texture, TextureLoader } from 'ogl';
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
 
-export function createLogoProgram(gl, texture) {
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
+import { Program, Geometry, Transform, Plane, Texture, TextureLoader, type OGLRenderingContext } from 'ogl';
+
+export function createLogoProgram(gl: OGLRenderingContext, texture: Texture | undefined) {
     const vertex = /* glsl */ `
         attribute vec2 uv;
         attribute vec3 position;
@@ -41,7 +50,6 @@ export function createLogoProgram(gl, texture) {
             gl_FragColor.a = a;
         }
     `;
-
     const program = new Program(gl, {
         vertex,
         fragment,
@@ -54,8 +62,8 @@ export function createLogoProgram(gl, texture) {
     return program;
 }
 
-export async function loadLogoTexture(gl, url, format = 'RGBA') {
-    let glFormat = gl.RGBA;
+export async function loadLogoTexture(gl: OGLRenderingContext, url: string, format = 'RGBA') {
+    let glFormat: number = gl.RGBA;
     switch (format) {
         case 'RGB':
             glFormat = gl.RGB;

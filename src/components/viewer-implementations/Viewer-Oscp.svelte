@@ -1,15 +1,19 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 
-<script>
+<script lang="ts">
     import Parent from '@components/Viewer';
-    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import { Vec3 } from 'ogl';
     import { distToLineSegment, rgbToHex, normalizeColor } from '@core/common';
     import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '@src/stateStore';
@@ -17,14 +21,19 @@
     import throttle from 'lodash/throttle';
     import { checkGLError } from '@core/devTools';
     import { PRIMITIVES } from '@core/engines/ogl/modelTemplates'; // just for drawing an agent
+    import type webxr from '../../core/engines/webxr';
+    import type ogl from '../../core/engines/ogl/ogl';
+    import type { XrFeatures } from '../../types/xr';
+    import type { OGLRenderingContext } from 'ogl';
+    import type { Transform } from 'ogl';
 
-    let parentInstance;
+    let parentInstance: Parent;
 
     let myGl = null;
 
     let useReticle = true; // TODO: make selectable on the GUI
-    let hitTestSource = null;
-    let reticle = null;
+    let hitTestSource: XRHitTestSource | undefined;
+    let reticle: Transform | null = null; // TODO: should be Mesh
 
     let agentInfo = {};
     let robotPathPolylines = {};
@@ -42,7 +51,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr, this3dEngine) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         parentInstance.startAr(thisWebxr, this3dEngine);
 
         startSession();
@@ -52,8 +61,9 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        let requiredXrFeatures = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
-        let optionalXrFeatures = [];
+        let requiredXrFeatures: XrFeatures[] = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
+        let optionalXrFeatures: XrFeatures[] = [];
+
         // TODO: do we need anchors at all?
 
         // TODO: move the whole reticle and tap handler stuff into the base Viewer
@@ -66,7 +76,10 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr, result, gl) => {
+            (xr: webxr, result: XRSession, gl: OGLRenderingContext | null) => {
+                if (!gl) {
+                    throw new Error('gl is undefined');
+                }
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
 
@@ -76,7 +89,7 @@
                     // request hit testing
                     result
                         .requestReferenceSpace('viewer')
-                        .then((refSpace) => result.requestHitTestSource({ space: refSpace }))
+                        .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
                         .then((source) => (hitTestSource = source));
                 }
             },
@@ -104,7 +117,7 @@
         if (!selectedAgentIdToSend) {
             return;
         }
-        if (reticle == undefined || reticle == null || reticle.visible == false) {
+        if (reticle === null || reticle.visible == false) {
             console.log('UI tapped but reticle is undefined :(');
             return;
         }
@@ -419,7 +432,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-    function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         if (useReticle) {
             checkGLError(myGl, 'before creating reticle');
             if (reticle == undefined || reticle == null) {
@@ -430,7 +443,7 @@
             }
             checkGLError(myGl, 'after creating reticle');
 
-            if (!hitTestSource) {
+            if (hitTestSource === undefined) {
                 console.log('HitTestSource is invalid! Cannot use reticle');
                 reticle.visible = false;
             } else {
@@ -475,7 +488,7 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time, frame, floorPose) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
     }
 
@@ -483,9 +496,9 @@
      * Called when the XRSession was closed.
      */
     function onXrSessionEnded() {
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             hitTestSource.cancel();
-            hitTestSource = null;
+            hitTestSource = undefined;
         }
         parentInstance.onXrSessionEnded();
     }
