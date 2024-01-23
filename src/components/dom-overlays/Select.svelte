@@ -1,6 +1,6 @@
-<script>
-    export let options = [];
-    export let displayFunc = (a) => a;
+<script lang="ts" generics="T">
+    export let options: T[] = [];
+    export let displayFunc: (a: T) => string | undefined;
     export let index = 0;
     export let value;
     export let fontSize = 18;

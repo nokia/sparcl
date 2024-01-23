@@ -235,24 +235,23 @@ selectedGeoPoseService.subscribe((value) => {
     localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
 });
 
-export const availableMessageBrokerServices = derived<typeof ssr, Service[]>(
+export const availableMessageBrokerServices = derived<typeof ssr, (Service & { guid: string })[]>(
     ssr,
     ($ssr, set) => {
-        const messageBrokerServices: Service[] = [];
+        const messageBrokerServices: (Service & { guid: string })[] = [];
         for (const record of $ssr) {
             for (const service of record.services) {
                 if (service.type === 'message-broker') {
                     const urlParsed = new URL(service.url);
                     urlParsed.protocol = 'wss://'; // HACK: url comes in with https:// protocol, but this needs to be wss://
                     messageBrokerServices.push({ ...service, guid: `${record.id}-${service.id}`, url: urlParsed.href });
-                    // TODO: guid need to be fixed
                 }
             }
         }
         set(messageBrokerServices);
         // If none selected yet, set the first available as selected
         // TODO: Make sure that stored selected service is still valid
-        if (get(selectedP2pService) === 'none' && messageBrokerServices.length > 0) {
+        if (get(selectedP2pService) === null && messageBrokerServices.length > 0) {
             selectedP2pService.set(messageBrokerServices[0]);
         }
     },
@@ -419,24 +418,18 @@ const updateInterval = 200;
  *
  * @type {Writable<string>}
  */
-export const userOnRobotPathBlinkingAlert = derived(isUserOnRobotPath, ($isUserOnRobotPath, set, update) => {
+export const userOnRobotPathBlinkingAlert = derived<typeof isUserOnRobotPath, 'state0' | 'state1' | 'state2'>(isUserOnRobotPath, ($isUserOnRobotPath, set, update) => {
     if ($isUserOnRobotPath) {
         let interval = setInterval(() => {
-            // update function does not exist in svelte 3, only in svelte 4. This is a workaround.
-            if (Date.now() % (updateInterval * 2) < updateInterval) {
-                set('state1');
-            } else {
-                set('state2');
-            }
-            // update((currentValue) => (currentValue === 'red' ? 'black' : 'red'));
+            update((currentValue) => (currentValue === 'state1' ? 'state2' : 'state1'));
         }, updateInterval);
         // Cleanup interval when the callback is run again, (when the original isUserOnRobotPath store changes), or when the last subscriber unsubscribes
         return () => {
             clearInterval(interval);
         };
     } else {
-        // Reset the derived value to undefined when the condition is false
-        set(undefined);
+        // Reset the derived value to state0 when the condition is false
+        set('state0');
     }
 });
 
@@ -477,8 +470,8 @@ const getRandomColorValue = () => {
  *
  * @type {Writable<{r: number, g: number, b: number, a: number}>}
  */
-const storedMyAgentColor = localStorage.getItem('myAgentColor')
-    ? JSON.parse(localStorage.getItem('myAgentColor'))
+const storedMyAgentColor: { r: number; g: number; b: number; a: number } | null = localStorage.getItem('myAgentColor')
+    ? JSON.parse(localStorage.getItem('myAgentColor') || 'null')
     : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
 export const myAgentColor = writable(storedMyAgentColor);
 myAgentColor.subscribe((value) => {
@@ -490,19 +483,19 @@ allowMessageBroker.subscribe((value) => {
     localStorage.setItem('allowMessageBroker', value === true ? 'true' : 'false');
 });
 
-const storedMessageBrokerAuth = JSON.parse(localStorage.getItem('messageBrokerAuth') || '{}');
+const storedMessageBrokerAuth: Record<string, { username: string; password: string }> = JSON.parse(localStorage.getItem('messageBrokerAuth') || '{}');
 export const messageBrokerAuth = writable(storedMessageBrokerAuth);
 messageBrokerAuth.subscribe((value) => {
     localStorage.setItem('messageBrokerAuth', JSON.stringify(value));
 });
 
-const storedSelectedMessageBroker = JSON.parse(localStorage.getItem('selectedMessageBrokerService') || '{}');
+const storedSelectedMessageBroker: Service & { guid: string } = JSON.parse(localStorage.getItem('selectedMessageBrokerService') || '{}');
 export const selectedMessageBrokerService = writable(storedSelectedMessageBroker);
 selectedMessageBrokerService.subscribe((value) => {
     localStorage.setItem('selectedMessageBrokerService', JSON.stringify(value));
     const currentMessageBrokerAuth = get(messageBrokerAuth);
     if (value.guid != null) {
         // initialize object
-        messageBrokerAuth.set({ [value.guid]: {}, ...currentMessageBrokerAuth });
+        messageBrokerAuth.set({ [value.guid]: { username: '', password: '' }, ...currentMessageBrokerAuth });
     }
 });

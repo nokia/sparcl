@@ -474,7 +474,7 @@
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
 
-                let content_definitions = {};
+                const content_definitions: Record<string, string> = {};
                 if (record.content.definitions != undefined) {
                     const d_entries = record.content.definitions.entries();
                     //console.log(" -definitions:")
@@ -492,7 +492,8 @@
                 switch (record.content.type) {
                     case 'MODEL_3D':
                     case '3D': // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
-                    case 'placeholder': { // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
+                    case 'placeholder': {
+                        // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
                         showContentsLog = true; // show log if at least one 3D object was received
 
                         let globalObjectPose = record.content.geopose;
@@ -560,7 +561,7 @@
                         // IROS2022 demo
                         if (record.tenant === 'IROS2022demo') {
                             //console.log("IROS2022demo object received!")
-                            let object_description = record.content.object_description;
+                            let object_description = (record.content as any).object_description;
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             let object_id = record.content.id;
@@ -577,14 +578,16 @@
                         let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
                             return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
                         }); // -1 if not found
-                        if (chair_id_index >= 0) {
+                        if (chair_id_index && chair_id_index >= 0) {
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                            let chair_id = record.content.definitions[chair_id_index].value;
-                            if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
-                                tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                            } else {
-                                tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                            let chair_id = record.content.definitions?.[chair_id_index].value;
+                            if (chair_id) {
+                                if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
+                                    tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                                } else {
+                                    tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+                                }
                             }
                         }
 
@@ -607,7 +610,7 @@
                             if (content_definitions['url'] != undefined) {
                                 url = content_definitions['url'];
                             } else {
-                                url = record.content.refs[0].url;
+                                url = record.content.refs ? record.content.refs[0].url : '';
                             }
                             tdEngine.addPointCloud(url, position, orientation);
                         } else {
@@ -625,15 +628,15 @@
                         if (content_definitions['url'] != undefined) {
                             url = content_definitions['url'];
                         } else {
-                            url = record.content.refs[0].url;
+                            url = record.content.refs ? record.content.refs[0].url : '';
                         }
                         let width = 1.0;
                         if (content_definitions['width'] != undefined) {
-                            width = content_definitions['width'];
+                            width = parseFloat(content_definitions['width']);
                         }
                         let height = 1.0;
                         if (content_definitions['height'] != undefined) {
-                            height = content_definitions['height'];
+                            height = parseFloat(content_definitions['height']);
                         }
                         tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
                         break;
@@ -715,6 +718,7 @@
     const blinkingAlertStates = {
         state1: 'border: solid 5px red',
         state2: 'border: solid 5px black',
+        state0: '',
     };
     // let blinkingAlert;
     // let interval;

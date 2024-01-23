@@ -9,7 +9,7 @@
 
 // code from OGL example https://github.com/oframe/ogl/blob/master/examples/load-gltf.html
 
-import { Program, TextureLoader, Transform, Vec3 } from 'ogl';
+import { Mesh, Program, TextureLoader, Transform, Vec3 } from 'ogl';
 
 const complex_shader = {
     vertex: /* glsl */ `
@@ -414,8 +414,9 @@ const simple_shader = {
     `,
 };
 
-export function createSimpleGltfProgram(node) {
-    const gltf = node.program.gltfMaterial || {};
+export function createSimpleGltfProgram(node: Mesh) {
+    // TODO: gltfMaterial does not exist on program
+    const gltf = (node.program as any).gltfMaterial || {};
     let { vertex, fragment } = simple_shader;
 
     let defines = `

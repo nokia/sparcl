@@ -337,7 +337,7 @@
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
             <p>{receivedContentTitles.join()}</p>
-            <ArExperimentOverlay bind:this={experimentOverlay} {settings} on:toggleAutoPlacement={() => toggleExperimentalPlacement()} on:relocalize={() => relocalize()} />
+            <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={() => toggleExperimentalPlacement()} on:relocalize={() => relocalize()} />
         {/if}
     </svelte:fragment>
 </Parent>

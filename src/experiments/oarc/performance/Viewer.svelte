@@ -85,7 +85,7 @@
      * @param event  Event      The Javascript event object
      * @param auto  boolean     true when called from automatic placement interval
      */
-    function experimentTapHandler(event, auto = false) {
+    function experimentTapHandler(auto = false) {
         if (hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];

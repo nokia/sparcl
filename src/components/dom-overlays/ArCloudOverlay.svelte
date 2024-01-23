@@ -15,7 +15,7 @@
     import Select from './Select.svelte';
 
     export let hasPose = false;
-    export let agentInfo;
+    export let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> | undefined = undefined;
     export let isLocalizing = false;
     export let isLocalized = false;
     let showIsLocalizedMessage: boolean = false;
@@ -28,13 +28,14 @@
         }
     }
     export let receivedContentTitles: string[] = [];
-    let agentSelected;
+    let agentSelected: { hexColor: string; agentName: string; agentId: string };
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
     const blinkingAlertStates = {
         state1: 'color: red',
         state2: 'color: black',
+        state0: '',
     };
     $: dispatch('agentSelected', agentSelected);
 </script>
@@ -56,7 +57,7 @@
     {#if showIsLocalizedMessage}
         <p>{$isLocalizedMessage}</p>
     {/if}
-    {#if Object.values(agentInfo).length > 0}
+    {#if agentInfo && Object.values(agentInfo).length > 0}
         <div style="padding-top: 15px; padding-bottom: 15px;">
             <Select fontSize={20} bind:value={agentSelected} displayFunc={(option) => option.agentName} options={Object.values(agentInfo)}></Select>
         </div>

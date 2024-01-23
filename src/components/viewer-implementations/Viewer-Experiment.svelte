@@ -173,7 +173,7 @@
             domOverlay: { root: overlay },
         });
 
-        tdEngine.setExperimentTapHandler(() => experimentTapHandler);
+        tdEngine.setExperimentTapHandler(() => experimentTapHandler());
 
         if (promise) {
             promise
@@ -298,7 +298,7 @@
      *
      * @param auto  boolean     true when called from automatic placement interval
      */
-    function experimentTapHandler(event, auto = false) {
+    function experimentTapHandler(auto = false) {
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
@@ -399,7 +399,8 @@
         }
     }
 
-    function shareCamera(position: any, quaternion: any) { // TODO: Vec3 and Quat
+    function shareCamera(position: any, quaternion: any) {
+        // TODO: Vec3 and Quat
         let object_description: ObjectDescription = {
             version: 2,
             color: [1.0, 1.0, 0.0, 0.2],

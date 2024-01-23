@@ -62,7 +62,8 @@ export default class webxr {
     startMarkerSession(canvas: HTMLCanvasElement, onXrMarkerFrameUpdateCallback: XrMarkerFrameUpdateCallbackType, options: XRSessionInit) {
         xrMarkerFrameUpdateCallback = onXrMarkerFrameUpdateCallback;
 
-        return navigator.xr?.requestSession('immersive-ar', options)
+        return navigator.xr
+            ?.requestSession('immersive-ar', options)
             .then((result) => {
                 this._initSession(canvas, result);
 
@@ -117,18 +118,22 @@ export default class webxr {
      * @param view  XRView      The view to use
      * @returns {WebGLTexture}
      */
-    getCameraTexture(frame, view) {
+    getCameraTexture(frame: XRFrame, view: XRView) {
         // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
         // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
 
         // We want to capture the camera image, however, it is not directly available here,
         // but only as a GPU texture. We draw something textured with the camera image at every frame,
         // so that the texture is kept in GPU memory. We can then capture it below.
-        const cameraTexture = this.glBinding.getCameraImage(frame, view); // note: this returns a WebGlTexture
+        if (!gl || !view.camera) {
+            return;
+        }
+        const cameraTexture = this.glBinding?.getCameraImage(view.camera); // note: this returns a WebGlTexture
+        if (!cameraTexture) {
+            return;
+        }
         drawCameraCaptureScene(gl, cameraTexture);
-
         checkGLError(gl, 'getCameraTexture() end');
-
         return cameraTexture;
     }
     // NOTE: since Chrome update in June 2021, the getCameraImage(frame, view) method is not available anymore

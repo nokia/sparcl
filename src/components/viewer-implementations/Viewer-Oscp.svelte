@@ -12,9 +12,9 @@
 -->
 
 <script lang="ts">
-    import Parent from '@components/Viewer';
+    import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
-    import { Vec3 } from 'ogl';
+    import { Quat, Vec3 } from 'ogl';
     import { distToLineSegment, rgbToHex, normalizeColor } from '@core/common';
     import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '@src/stateStore';
     import { get } from 'svelte/store';
@@ -24,25 +24,26 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
-    import type { OGLRenderingContext } from 'ogl';
+    import type { Mesh, OGLRenderingContext } from 'ogl';
     import type { Transform } from 'ogl';
 
     let parentInstance: Parent;
 
-    let myGl = null;
+    let myGl: OGLRenderingContext | null = null;
 
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource: XRHitTestSource | undefined;
     let reticle: Transform | null = null; // TODO: should be Mesh
 
-    let agentInfo = {};
-    let robotPathPolylines = {};
-    let robotPathClearTimeouts = {};
-    let robotTargetWaypoints = {};
+    let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
+    let robotPathPolylines: Record<string, { robotPolyLine: Mesh; robotPolyLinePoints: Vec3[] }> = {};
+    let robotPathClearTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
+    let robotTargetWaypoints: Record<string, { geopose: Geopose; model: Mesh; floorpose: Transform }> = {};
     let selectedAgentIdToSend = 'TEST_ROBOT_ID'; // this is just for testing, should be null
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
 
     import { createEventDispatcher } from 'svelte';
+    import type { Geopose } from '@oarc/scd-access';
     const dispatcher = createEventDispatcher();
 
     /**
@@ -98,7 +99,7 @@
         );
     }
 
-    function isIntersectingWithRobotPath(floorPose) {
+    function isIntersectingWithRobotPath(floorPose: XRViewerPose) {
         const threshold = 0.3;
         for (const view of floorPose.views) {
             for (const { robotPolyLinePoints } of Object.values(robotPathPolylines)) {
@@ -132,15 +133,17 @@
         // TODO: is this needed at all?
         // HACK: this is to initialize the internal alignment matrices.
         // Normally this is done when the first contents arrives, but we have no contents yet at this point.
-        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, latestGlobalPose);
+        if (!latestGlobalPose.position || !latestGlobalPose.quaternion) {
+            console.log(`latestGlobalPose is not defined properly: ${latestGlobalPose}`);
+            throw new Error(`latestGlobalPose is not defined properly: ${latestGlobalPose}`);
+        }
+        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, { position: latestGlobalPose.position, quaternion: latestGlobalPose.quaternion });
 
         // local target pose is from reticle
-        let localTargetPose = {};
-        localTargetPose['position'] = reticle.position;
-        localTargetPose['quaternion'] = reticle.quaternion;
+        const localTargetPose = { position: reticle.position, quaternion: reticle.quaternion };
 
         // determine the global position of the tap and create a (global!) waypoint there
-        let globalTargetPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(localTargetPose.position, localTargetPose.quaternion);
+        const globalTargetPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(localTargetPose.position, localTargetPose.quaternion);
 
         // publish the waypoint and receive it through the messaging system
         const message_body = {
@@ -160,7 +163,19 @@
 
     // TODO: if there is already one, do not recreate but just move it
     // TODO: globalTargetPose can be factored out from this method
-    function setWaypointObject({ globalTargetPose, localTargetPose, targetAgentId, active = true, playAudio = true }) {
+    function setWaypointObject({
+        globalTargetPose,
+        localTargetPose,
+        targetAgentId,
+        active = true,
+        playAudio = true,
+    }: {
+        globalTargetPose: Geopose;
+        localTargetPose: Transform;
+        targetAgentId: string;
+        active?: boolean;
+        playAudio?: boolean;
+    }) {
         // remove any previous waypoint
         if (robotTargetWaypoints[targetAgentId]) {
             parentInstance.getRenderer().remove(robotTargetWaypoints[targetAgentId].model);
@@ -173,10 +188,7 @@
 
         // Create a waypoint object
         const shape = PRIMITIVES.cylinder;
-        let options = {};
-        options.radiusTop = 0.3;
-        options.radiusBottom = 0.3;
-        options.height = 2;
+        const options = { radiusTop: 0.3, radiusBottom: 0.3, height: 2 };
         const fragmentShader = colorfulFragment;
         const scale = 0.1;
         const model = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
@@ -192,7 +204,7 @@
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function onNetworkEvent(events) {
+    export function onNetworkEvent(events: any) {
         // Simply print any other events and return
         if (!('agent_geopose_updated' in events) && !('waypoint_set' in events) && !('reservation_status_changed' in events) && !('robot_path' in events)) {
             console.log('Viewer-Oscp: Unknown event received:');
@@ -265,13 +277,13 @@
 
         if ('waypoint_set' in events) {
             console.log('Global waypoint event received:');
-            const msg = events.waypoint_set;
+            const msg: { agent_id: string; geopose: Geopose; active: boolean } = events.waypoint_set;
             console.log(msg);
 
             const active = msg.active;
             const targetAgentId = msg.agent_id;
-            let globalTargetPose = msg.geopose;
-            let localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
+            const globalTargetPose = msg.geopose;
+            const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
 
             // TODO: always draw and play sound, right?
             // if (targetAgentId === $myAgentId || targetAgentId === selectedAgentIdToSend) {
@@ -282,7 +294,7 @@
         }
 
         if ('robot_path' in events) {
-            const msg = events.robot_path;
+            const msg: { agent_id: string; geoposes: Geopose[] } = events.robot_path;
             if (robotPathPolylines[msg.agent_id]) {
                 parentInstance.getRenderer().remove(robotPathPolylines[msg.agent_id].robotPolyLine);
                 delete robotPathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPathPolylines reactively
@@ -296,11 +308,16 @@
                 return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
             });
             const hexColor = agentInfo[msg.agent_id].hexColor;
-            const robotPolyLine = robotPolyLinePoints.length ? parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor) : undefined;
-            robotPathPolylines[msg.agent_id] = { robotPolyLine, robotPolyLinePoints };
+            if (robotPolyLinePoints.length) {
+                robotPathPolylines[msg.agent_id] = { robotPolyLine: parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor), robotPolyLinePoints };
+            }
             robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {
-                if (!parentInstance) return;
-                if (!robotPathPolylines[msg.agent_id]) return;
+                if (!parentInstance) {
+                    return;
+                }
+                if (!robotPathPolylines[msg.agent_id]) {
+                    return;
+                }
                 parentInstance.getRenderer().remove(robotPathPolylines[msg.agent_id].robotPolyLine);
                 delete robotPathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPathPolylines reactively
             }, 2000);
@@ -335,10 +352,10 @@
         }
     }
 
-    function shareCameraPose(localPose) {
+    function shareCameraPose(localPose: XRViewerPose) {
         // Warning: conversion from the webxr transform representation to OGL representation
-        const position = [localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z];
-        const quaternion = [localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w];
+        const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
+        const quaternion = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w);
 
         const timestamp = Date.now();
         const agent_id = $myAgentId;
@@ -401,7 +418,7 @@
             agent_id: $myAgentId,
             avatar: {
                 name: $myAgentName,
-                color: { r: $myAgentColor.r, g: $myAgentColor.g, b: $myAgentColor.b, a: $myAgentColor.a },
+                color: { r: $myAgentColor?.r, g: $myAgentColor?.g, b: $myAgentColor?.b, a: $myAgentColor?.a },
             },
             geopose: geoPose,
             timestamp: timestamp,
@@ -415,7 +432,7 @@
         // END dtvis demo
     }
 
-    const throttledShowAlert = throttle((floorPose) => {
+    const throttledShowAlert = throttle((floorPose: XRViewerPose) => {
         if (isIntersectingWithRobotPath(floorPose)) {
             $isUserOnRobotPath = true;
         } else {
@@ -432,8 +449,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        if (useReticle) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace) {
+        if (useReticle && myGl) {
             checkGLError(myGl, 'before creating reticle');
             if (reticle == undefined || reticle == null) {
                 //reticle = parentInstance.getRenderer().addReticle();
@@ -450,10 +467,12 @@
                 const hitTestResults = frame.getHitTestResults(hitTestSource);
                 if (hitTestResults.length > 0) {
                     const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-                    const position = reticlePose.transform.position;
-                    const orientation = reticlePose.transform.orientation;
-                    parentInstance.getRenderer().updateReticlePose(reticle, position, orientation);
-                    reticle.visible = true;
+                    const position = reticlePose?.transform.position;
+                    const orientation = reticlePose?.transform.orientation;
+                    if (position && orientation) {
+                        parentInstance.getRenderer().updateReticlePose(reticle, position, orientation);
+                        reticle.visible = true;
+                    }
                 } else {
                     reticle.visible = false;
                 }

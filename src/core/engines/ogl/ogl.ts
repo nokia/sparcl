@@ -7,7 +7,27 @@
   SPDX-License-Identifier: MIT
 */
 
-import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Polyline, Color, type OGLRenderingContext, Program, Quat, Vec3 } from 'ogl';
+import {
+    Camera,
+    Euler,
+    GLTFLoader,
+    Mat4,
+    Raycast,
+    Renderer,
+    Transform,
+    Vec2,
+    AxesHelper,
+    Mesh,
+    Plane,
+    Geometry,
+    Polyline,
+    Color,
+    type OGLRenderingContext,
+    Program,
+    Quat,
+    Vec3,
+    type Vec3Tuple,
+} from 'ogl';
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
@@ -60,8 +80,8 @@ let _globalImagePose: Geopose;
 let _localImagePose: { position: Position; orientation: Orientation };
 let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 
-let dynamic_objects_descriptions = {};
-let dynamic_objects_meshes = {};
+let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
+let dynamic_objects_meshes: Record<string, Mesh> = {};
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -151,7 +171,7 @@ export default class ogl {
         return placeholder;
     }
 
-    addPolyline(points, hexColor) {
+    addPolyline(points: Vec3[], hexColor: string) {
         const polyline = new Polyline(gl, {
             points,
             uniforms: {
@@ -216,7 +236,7 @@ export default class ogl {
                         if ((node as any).program) {
                             // TODO: cast node to Mesh
                             // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
-                            (node as any).program = createSimpleGltfProgram(node);
+                            (node as any).program = createSimpleGltfProgram(node as Mesh);
                         }
                     });
                 });
@@ -320,26 +340,23 @@ export default class ogl {
      * @param object_description {*}    Key-value pairs of object properties
      * @returns {Mesh}  The newly created mesh
      */
-    addDynamicObject(object_id, position, orientation, object_description = null) {
+    addDynamicObject(object_id: string, position: number | Vec3 | Vec3Tuple, orientation: Quat, object_description: ObjectDescription | null = null) {
         console.log('OGL addDynamicObject: ' + object_id);
-        let description = object_description;
-        if (description == null) {
-            description = {
-                version: 2,
-                color: [1.0, 1.0, 1.0, 0.5],
-                shape: PRIMITIVES.sphere,
-                scale: [0.25, 0.25, 0.25],
-                transparent: true,
-                options: {},
-            };
-        }
+        let description = object_description || {
+            version: 2,
+            color: [1.0, 1.0, 1.0, 0.5],
+            shape: PRIMITIVES.sphere,
+            scale: [0.25, 0.25, 0.25],
+            transparent: true,
+            options: {},
+        };
         //console.log(description);
         //console.log(position);
         //console.log(orientation);
         //console.log(" ");
         const mesh = createModel(gl, description.shape, description.color, description.transparent, description.options, description.scale);
         mesh.position.set(position);
-        mesh.quaternion.set(orientation);
+        mesh.quaternion.set(orientation, 0, 0, 1);
         scene.addChild(mesh);
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
@@ -349,33 +366,29 @@ export default class ogl {
     /**
      * Update a dynamic object with given properties at the given pose
      *
-     * @param object_id  string     User-specified unique ID in the scene
-     * @param position  number{x, y, z}        3D position of the object
-     * @param orientation  number{x, y, z, w}     Orientation of the object
-     * @param object_description {*}    Key-value pairs of object properties
+     * @param object_id  User-specified unique ID in the scene
+     * @param position  3D position of the object
+     * @param orientation  Orientation of the object
+     * @param object_description Key-value pairs of object properties
      * @returns boolean     Whether the update succeeded
      */
-    updateDynamicObject(object_id, position = null, orientation = null, object_description = null) {
+    updateDynamicObject(object_id: string, position: Vec3 | null = null, orientation: Quat | null = null, object_description: ObjectDescription | null = null) {
         //console.log("OGL updateDynamicObject: " + object_id);
         if (!(object_id in dynamic_objects_descriptions)) {
             console.log('WARNING: object_id ' + object_id + ' is is not in the scene, cannot update object');
             return false;
         }
         const old_position = dynamic_objects_meshes[object_id].position;
-        let new_position = [old_position[0], old_position[1], old_position[2]];
-        //let new_position = new Vec3(old_position[0], old_position[1], old_position[2]);
+        let new_position = new Vec3(old_position[0], old_position[1], old_position[2]);
         if (position != null) {
-            new_position = [position[0], position[1], position[2]];
-            //new_position = new Vec3(position[0], position[1], position[2]);
+            new_position = new Vec3(position[0], position[1], position[2]);
         }
         dynamic_objects_meshes[object_id].position = new_position;
 
         const old_orientation = dynamic_objects_meshes[object_id].quaternion;
-        let new_orientation = [old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]];
-        //let new_orientation = new Quat(old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]);
+        let new_orientation = new Quat(old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]);
         if (orientation != null) {
-            new_orientation = [orientation[0], orientation[1], orientation[2], orientation[3]];
-            //new_orientation = new Quat(orientation[0], orientation[1], orientation[2], orientation[3]);
+            new_orientation = new Quat(orientation[0], orientation[1], orientation[2], orientation[3]);
         }
         dynamic_objects_meshes[object_id].quaternion = new_orientation;
 
@@ -386,7 +399,7 @@ export default class ogl {
             return true;
         }
         console.log(object_id + ' has changed!');
-        let new_object_description = { ...object_description };
+        let new_object_description = object_description ? { ...object_description } : null;
         // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
         this.removeDynamicObject(object_id);
         this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
@@ -399,7 +412,7 @@ export default class ogl {
      * @param object_id  string     User-specified unique ID in the scene
      * @returns {*}     Key-value pairs of object properties
      */
-    getDynamicObjectDescription(object_id) {
+    getDynamicObjectDescription(object_id: string) {
         if (object_id in dynamic_objects_descriptions) {
             return dynamic_objects_descriptions[object_id];
         }
@@ -412,7 +425,7 @@ export default class ogl {
      * @param object_id  string     User-specified unique ID in the scene
      * @returns {Mesh}
      */
-    getDynamicObjectMesh(object_id) {
+    getDynamicObjectMesh(object_id: string) {
         if (object_id in dynamic_objects_meshes) {
             return dynamic_objects_meshes[object_id];
         }
@@ -454,7 +467,7 @@ export default class ogl {
         axes.setParent(scene);
     }
 
-    addPointCloud(url, position, orientation) {
+    addPointCloud(url: string, position: Position, orientation: Orientation) {
         console.log('Adding point cloud ' + url);
 
         MyPLYLoader.load(gl, url).then((geometry) => {
@@ -481,7 +494,7 @@ export default class ogl {
         });
     }
 
-    addLogoObject(url, position, orientation, width = 1.0, height = 1.0) {
+    addLogoObject(url: string, position: Vec3, orientation: Orientation, width = 1.0, height = 1.0) {
         console.log('OGL addLogoObject ' + url);
         loadLogoTexture(gl, url).then((texture) => {
             const logoProgram = createLogoProgram(gl, texture);
@@ -574,15 +587,14 @@ export default class ogl {
         camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000 });
     }
 
-    removeDynamicObject(object_id) {
+    removeDynamicObject(object_id: string) {
         console.log('OGL removeDynamicObject: ' + object_id);
         if (!(object_id in dynamic_objects_meshes)) {
             console.log('WARNING: tried to delete object ' + object_id + ' which is not in the scene');
             return;
         }
-        let mesh = dynamic_objects_meshes[object_id];
+        const mesh = dynamic_objects_meshes[object_id];
         this.remove(mesh);
-        mesh = null;
         delete dynamic_objects_meshes[object_id];
         delete dynamic_objects_descriptions[object_id];
     }
@@ -606,7 +618,7 @@ export default class ogl {
      */
     clearScene() {
         // dynamic objects
-        for (var object_id in dynamic_objects_descriptions) {
+        for (const object_id in dynamic_objects_descriptions) {
             this.removeDynamicObject(object_id);
         }
 
@@ -800,7 +812,7 @@ export default class ogl {
      */
     addSpatialContentRecord(globalObjectPose: Geopose, content: SCR) {
         // TODO: implement general content placement
-        console.log('Warning: content placement is not implemented yet!')
+        console.log('Warning: content placement is not implemented yet!');
         const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]); // gray
 
         // calculate relative position w.r.t the camera in ENU system

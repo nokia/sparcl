@@ -63,7 +63,7 @@
     let isHeadless = false;
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
-    let rmq: typeof import('@src/core/rmqnetwork') | null =  null; // RabbitMQ module (optional)
+    let rmq: typeof import('@src/core/rmqnetwork') | null = null; // RabbitMQ module (optional)
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
@@ -204,11 +204,16 @@
         console.log('loading RabbitMQ module...');
         import('@src/core/rmqnetwork').then((rmqModule) => {
             rmq = rmqModule;
-            let rmq_callback = (data) => {
-                viewerInstance?.onNetworkEvent(data);
+            const rmq_callback = (data: any) => {
+                viewerInstance?.onNetworkEvent?.(data);
                 spectator?.onNetworkEvent(data);
             };
-            rmq.connectWithReceiveCallback(rmq_callback);
+            rmq.connectWithReceiveCallback({
+                updateFunction: rmq_callback,
+                url: $selectedMessageBrokerService.url,
+                password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
+                username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
+            });
         });
     });
 
@@ -281,7 +286,7 @@
                 rmq = await import('@src/core/rmqnetwork');
             }
             rmq.connectWithReceiveCallback({
-                updateFunction: (data) => viewerInstance?.onNetworkEvent(data),
+                updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
                 url: $selectedMessageBrokerService.url,
                 password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
                 username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,

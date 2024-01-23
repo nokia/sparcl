@@ -44,6 +44,9 @@
         myAgentName,
         availableMessageBrokerServices,
         activeExperiment,
+        selectedMessageBrokerService,
+        messageBrokerAuth,
+        allowMessageBroker,
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -58,7 +61,7 @@
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
 
-    let rmqTestPromise;
+    let rmqTestPromise: Promise<boolean>;
     onMount(() => {
         if ($selectedMessageBrokerService.url && $messageBrokerAuth[$selectedMessageBrokerService?.guid].username != null)
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
@@ -250,9 +253,7 @@
         <dl>
             <dt><label for="experimentselector">Type</label></dt>
             <dd class="select" id="experimentselector">
-                <!-- TODO: there is a problem with passing the value. we guess thsi should be the default value of the selector -->
                 <Selector
-                    value={$experimentModeSettings?.active}
                     on:change={(event) => {
                         experimentDetail = event.detail;
 
@@ -270,7 +271,9 @@
         {#await experimentDetail?.settings}
             <p>Loading...</p>
         {:then setting}
-            <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
+            {#if experimentDetail?.key}
+                <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
+            {/if}
         {/await}
     {/if}
     {#if $availableMessageBrokerServices.length > 0}

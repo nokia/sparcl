@@ -1,24 +1,24 @@
 import { get } from 'svelte/store';
 import { myAgentId } from '@src/stateStore';
 import throttle from 'lodash/throttle';
-import stomp from 'stompjs';
+import stomp, { type Client, type Frame } from 'stompjs';
 
 const rmq_topic_geopose_update = '/exchange/esoptron/geopose_update.#';
 const rmq_topic_waypoint = '/exchange/esoptron/waypoint';
 const rmq_topic_robot_path = '/exchange/esoptron/robot_path';
 const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
 
-let rmqClient = null;
+let rmqClient: Client | null = null;
 
-export async function testRmqConnection({ url, username, password }) {
-    return await new Promise((resolve, reject) => {
+export async function testRmqConnection({ url, username, password }: { url: string; username: string; password: string }) {
+    return await new Promise<boolean>((resolve, reject) => {
         const rmq = stomp.client(url);
         rmq.debug = () => {};
         const onConnect = () => {
             rmq.disconnect(() => {});
             resolve(true);
         };
-        const onError = (err) => {
+        const onError = (err: Frame | string) => {
             rmq.disconnect(() => {});
             console.log('err', err);
             reject(err);
@@ -27,7 +27,7 @@ export async function testRmqConnection({ url, username, password }) {
     });
 }
 
-export function connectWithReceiveCallback({ updateFunction, url, username, password }) {
+export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
     const throttledUpdateFunction = throttle((data) => {
         if (updateFunction) {
             updateFunction(data);
@@ -42,7 +42,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         // for debugging, we can print all received messages to the console (or even to a separate HTML view)
         //console.log(str + "\n");
     };
-    const on_connect = function (x) {
+    const on_connect = function (x: any) {
         console.log('RMQ connection successful!');
 
         // now we subscribe to topics
@@ -52,7 +52,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         // 3. registers a subscription against the queue, for the current STOMP session.
 
         console.log('Subscribing to topic ' + rmq_topic_geopose_update);
-        rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
+        rmqClient?.subscribe(rmq_topic_geopose_update, function (d) {
             const msg = JSON.parse(d.body);
             //console.log(msg);
 
@@ -77,7 +77,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         });
 
         console.log('Subscribing to topic ' + rmq_topic_waypoint);
-        rmqClient.subscribe(rmq_topic_waypoint, function (d) {
+        rmqClient?.subscribe(rmq_topic_waypoint, function (d) {
             const msg = JSON.parse(d.body);
             const waypointGeopose = msg.geopose || null;
             if (waypointGeopose == null) {
@@ -100,7 +100,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         });
 
         console.log('Subscribing to topic ' + rmq_topic_robot_path);
-        rmqClient.subscribe(rmq_topic_robot_path, function (d) {
+        rmqClient?.subscribe(rmq_topic_robot_path, function (d) {
             const msg = JSON.parse(d.body);
             const waypointGeoposes = msg.geoposes || null;
             const agent_id = msg.agent_id || 'unknown'; // target agent
@@ -120,7 +120,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         });
 
         console.log('Subscribing to topic ' + rmq_topic_chair_reservation);
-        rmqClient.subscribe(rmq_topic_chair_reservation, function (d) {
+        rmqClient?.subscribe(rmq_topic_chair_reservation, function (d) {
             const msg = JSON.parse(d.body);
             console.log(msg);
             const data = {
@@ -133,19 +133,19 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         });
     };
 
-    const on_error = function (err) {
+    const on_error = function (err: Frame | string) {
         console.log(`Error: rabbitmq connection disconnected, reason: ${err}. Trying to reconnect.`);
-        setTimeout(rmqClient.connect(username, password, on_connect, on_error, '/'), 1000);
+        setTimeout(rmqClient?.connect(username, password, on_connect, on_error, '/'), 1000);
     };
 
     rmqClient.connect(username, password, on_connect, on_error, '/');
 }
 
 export const rmqDisconnect = () => {
-    rmqClient?.disconnect();
+    rmqClient?.disconnect(() => {});
 };
 
-export function send(routing_key, data) {
+export function send(routing_key: string, data: any) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
-    rmqClient.send(routing_key, {}, JSON.stringify(data));
+    rmqClient?.send(routing_key, {}, JSON.stringify(data));
 }

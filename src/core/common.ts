@@ -7,6 +7,8 @@
   SPDX-License-Identifier: MIT
 */
 
+import { Vec3 } from 'ogl';
+
 /* Provider for common data types and functions */
 
 /**
@@ -158,31 +160,31 @@ export function randomInteger(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function square(x) {
+function square(x: number) {
     return x * x;
 }
 
-function sum(arr) {
+function sum(arr: number[]) {
     return arr.reduce((accumulator, value) => accumulator + value, 0);
 }
 
-function distSquared(v, w, coords) {
+function distSquared(v: { x: number; y: number; z: number }, w: { x: number; y: number; z: number }, coords: ('x' | 'y' | 'z')[]) {
     return sum(coords.map((coord) => square(v[coord] - w[coord])));
 }
 
-function componentToHex(c) {
+function componentToHex(c: number) {
     var hex = c.toString(16);
     return hex.length == 1 ? '0' + hex : hex;
 }
 
-export function rgbToHex(rgbObj) {
+export function rgbToHex(rgbObj: { r?: number; g?: number; b?: number }) {
     if (rgbObj.r != null && rgbObj.g != null && rgbObj.b != null) {
         return '#' + componentToHex(rgbObj.r) + componentToHex(rgbObj.g) + componentToHex(rgbObj.b);
     }
     return '#000000';
 }
 
-export function normalizeColor(color) {
+export function normalizeColor(color: number | null) {
     if (color == null) {
         return 1.0;
     }
@@ -193,8 +195,18 @@ export function normalizeColor(color) {
 }
 
 // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = undefined }) {
-    const coordinates = ['x', 'y', 'z'];
+export function distToLineSegment({
+    point,
+    lineStart,
+    lineEnd,
+    projectionAxis = undefined,
+}: {
+    point: { x: number; y: number; z: number };
+    lineStart: Vec3;
+    lineEnd: Vec3;
+    projectionAxis: 'x' | 'y' | 'z' | undefined;
+}) {
+    const coordinates = ['x', 'y', 'z'] as const;
     const coordsFiltered = coordinates.filter((coord) => coord !== projectionAxis);
     const lineLengthSquared = distSquared(lineStart, lineEnd, coordsFiltered);
     if (lineLengthSquared == 0) {
@@ -202,8 +214,11 @@ export function distToLineSegment({ point, lineStart, lineEnd, projectionAxis = 
     }
     let t = sum(coordsFiltered.map((coord) => (point[coord] - lineStart[coord]) * (lineEnd[coord] - lineStart[coord]))) / lineLengthSquared;
     t = Math.max(0, Math.min(1, t));
-    const closestPointOnSegment = coordsFiltered.reduce((acc, coord) => {
-        return { ...acc, [coord]: lineStart[coord] + t * (lineEnd[coord] - lineStart[coord]) };
-    }, {});
+    const closestPointOnSegment = coordsFiltered.reduce<{ x: number; y: number; z: number }>(
+        (acc, coord) => {
+            return { ...acc, [coord]: lineStart[coord] + t * (lineEnd[coord] - lineStart[coord]) };
+        },
+        {} as { x: number; y: number; z: number },
+    );
     return Math.sqrt(distSquared(point, closestPointOnSegment, coordsFiltered));
 }
