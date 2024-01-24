@@ -208,12 +208,12 @@
                 viewerInstance?.onNetworkEvent?.(data);
                 spectator?.onNetworkEvent(data);
             };
-            if ($selectedMessageBrokerService) {
+            if ($selectedMessageBrokerService && $messageBrokerAuth) {
                 rmq.connectWithReceiveCallback({
                     updateFunction: rmq_callback,
                     url: $selectedMessageBrokerService.url,
-                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.password,
-                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.username,
+                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
+                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
                 });
             }
         });
@@ -264,7 +264,7 @@
                 if ($activeExperiment) {
                     const selector = new Selector({ target: document.createElement('div') });
                     const { viewer, key } = selector.importExperiment($activeExperiment);
-                    options.settings = writable($experimentModeSettings[key]);
+                    options.settings = writable($experimentModeSettings?.[key]);
                     viewerImplementation = viewer;
                     if (viewer === undefined) {
                         console.warn("The experiment's Viewer is undefined!");
@@ -287,12 +287,12 @@
             if (!rmq) {
                 rmq = await import('@src/core/rmqnetwork');
             }
-            if ($selectedMessageBrokerService) {
+            if ($selectedMessageBrokerService && $messageBrokerAuth) {
                 rmq.connectWithReceiveCallback({
                     updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
                     url: $selectedMessageBrokerService.url,
-                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.password,
-                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid]?.username,
+                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
+                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
                 });
             }
         }

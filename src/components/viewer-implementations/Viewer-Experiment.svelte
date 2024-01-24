@@ -250,12 +250,12 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function handleExperiment(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, reticlePose: XRPose, frameDuration: number, passedMaxSlow: boolean) {
-        if ($experimentModeSettings.game.localisation && !isLocalized) {
+        if ($experimentModeSettings?.game.localisation && !isLocalized) {
             handleOscp(time, frame, floorPose);
         } else {
             handlePoseHeartbeat();
 
-            showFooter = ($experimentModeSettings.game.showstats || ($experimentModeSettings.game.localisation && !isLocalisationDone)) as boolean;
+            showFooter = ($experimentModeSettings?.game.showstats || ($experimentModeSettings?.game.localisation && !isLocalisationDone)) as boolean;
 
             xrEngine.setViewPort();
 
@@ -299,7 +299,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
+        if (!hasLostTracking && reticle && ($experimentModeSettings?.game.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -981,7 +981,7 @@
             {:else if $arMode === ARMODES.develop}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
-                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
+                {#if $experimentModeSettings?.game.localisation && !isLocalisationDone}
                     <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} {receivedContentTitles} on:startLocalisation={startLocalisation} />
                 {:else}
                     <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} on:relocalize={relocalize} />

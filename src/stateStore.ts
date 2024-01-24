@@ -111,8 +111,8 @@ creatorModeSettings.subscribe((value) => {
 /**
  * Available settings for experiment mode.
  */
-const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings') || '{}');
-export const experimentModeSettings = writable<Record<string, Record<string, unknown>>>(storedExperimentModeSettings);
+const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings') || 'null');
+export const experimentModeSettings = writable<Record<string, Record<string, unknown>> | null>(storedExperimentModeSettings);
 experimentModeSettings.subscribe((value) => {
     localStorage.setItem('experimentmodesettings', JSON.stringify(value));
 });
@@ -483,7 +483,7 @@ allowMessageBroker.subscribe((value) => {
     localStorage.setItem('allowMessageBroker', value === true ? 'true' : 'false');
 });
 
-const storedMessageBrokerAuth: Record<string, { username: string; password: string }> = JSON.parse(localStorage.getItem('messageBrokerAuth') || '{}');
+const storedMessageBrokerAuth: Record<string, { username: string; password: string }> | null = JSON.parse(localStorage.getItem('messageBrokerAuth') || 'null');
 export const messageBrokerAuth = writable(storedMessageBrokerAuth);
 messageBrokerAuth.subscribe((value) => {
     localStorage.setItem('messageBrokerAuth', JSON.stringify(value));

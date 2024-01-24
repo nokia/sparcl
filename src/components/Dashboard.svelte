@@ -63,7 +63,7 @@
 
     let rmqTestPromise: Promise<boolean>;
     onMount(() => {
-        if ($selectedMessageBrokerService?.url && $messageBrokerAuth[$selectedMessageBrokerService?.guid]?.username != null)
+        if ($selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
     });
 
@@ -271,7 +271,7 @@
         {#await experimentDetail?.settings}
             <p>Loading...</p>
         {:then setting}
-            {#if experimentDetail?.key}
+            {#if experimentDetail?.key && $experimentModeSettings}
                 <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
             {/if}
         {/await}
@@ -288,33 +288,38 @@
                     <Select bind:value={$selectedMessageBrokerService} displayFunc={(option) => option.description} options={Object.values($availableMessageBrokerServices)}></Select>
                 </dd>
                 {#if $selectedMessageBrokerService?.properties?.find((prop) => prop.type === 'authentication' && prop.value === 'password')}
-                    <form>
-                        <div>
-                            <label style="display: inline-block; min-width: 100px;" for="username">username:</label>
-                            <input type="text" bind:value={$messageBrokerAuth[$selectedMessageBrokerService?.guid].username} name="username" />
+                    {#if $messageBrokerAuth?.[$selectedMessageBrokerService.guid]}
+                        <form>
+                            <div>
+                                <label style="display: inline-block; min-width: 100px;" for="username">username:</label>
+                                <input type="text" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].username} name="username" />
+                            </div>
+                            <div>
+                                <label style="display: inline-block; min-width: 100px;" for="password">password:</label>
+                                <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].password} name="password" />
+                            </div>
+                        </form>
+                        <div class="center" style="padding-top: 1rem;">
+                            <button
+                                id="test-rmq-auth-button"
+                                on:click={() =>
+                                    (rmqTestPromise =
+                                        $selectedMessageBrokerService && $messageBrokerAuth
+                                            ? testRmqConnection({ url: $selectedMessageBrokerService?.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] })
+                                            : Promise.reject('no message broker service selected'))}>Test Authentication</button
+                            >
                         </div>
-                        <div>
-                            <label style="display: inline-block; min-width: 100px;" for="password">password:</label>
-                            <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService?.guid].password} name="password" />
-                        </div>
-                    </form>
-                    <div class="center" style="padding-top: 1rem;">
-                        <button
-                            id="test-rmq-auth-button"
-                            on:click={() =>
-                                (rmqTestPromise = $selectedMessageBrokerService
-                                    ? testRmqConnection({ url: $selectedMessageBrokerService?.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] })
-                                    : Promise.reject('no message broker service selected'))}>Test Authentication</button
-                        >
-                    </div>
-                    {#if rmqTestPromise != null}
-                        {#await rmqTestPromise}
-                            <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
-                        {:then}
-                            <p class="center" style="color: green">Authentication successful</p>
-                        {:catch error}
-                            <p class="center" style="color: red">Authentication unsuccessful {error}</p>
-                        {/await}
+                        {#if rmqTestPromise != null}
+                            {#await rmqTestPromise}
+                                <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
+                            {:then}
+                                <p class="center" style="color: green">Authentication successful</p>
+                            {:catch error}
+                                <p class="center" style="color: red">Authentication unsuccessful {error}</p>
+                            {/await}
+                        {/if}
+                    {:else}
+                        <p>Internal error while handlind message broker state</p>
                     {/if}
                 {/if}
             {/if}
