@@ -200,23 +200,6 @@
                 shouldShowDashboard = true;
             }
         }
-
-        console.log('loading RabbitMQ module...');
-        import('@src/core/rmqnetwork').then((rmqModule) => {
-            rmq = rmqModule;
-            const rmq_callback = (data: any) => {
-                viewerInstance?.onNetworkEvent?.(data);
-                spectator?.onNetworkEvent(data);
-            };
-            if ($selectedMessageBrokerService && $messageBrokerAuth) {
-                rmq.connectWithReceiveCallback({
-                    updateFunction: rmq_callback,
-                    url: $selectedMessageBrokerService.url,
-                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
-                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
-                });
-            }
-        });
     });
 
     /**
