@@ -10,6 +10,6 @@
 declare module 'svelte-awesome-color-picker' {
     import type { SvelteComponent } from 'svelte';
 
-    class ColorPicker extends SvelteComponent<{ rgb: { r: number; g: number; b: number; a: number } | null, label: string }> {}
-    export = ColorPicker
+    class ColorPicker extends SvelteComponent<{ rgb: { r: number; g: number; b: number; a: number } | null; label: string }> {}
+    export = ColorPicker;
 }
