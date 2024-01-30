@@ -4,6 +4,7 @@ import throttle from 'lodash/throttle';
 import stomp, { type Client, type Frame } from 'stompjs';
 
 const rmq_topic_geopose_update = '/exchange/esoptron/geopose_update.#';
+const rmq_topic_object_created = '/exchange/esoptron/object_created';
 const rmq_topic_waypoint = '/exchange/esoptron/waypoint';
 const rmq_topic_robot_path = '/exchange/esoptron/robot_path';
 const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
@@ -74,6 +75,18 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
                     geopose: agentGeopose,
                     color: msg.avatar.color,
                     timestamp: timestamp,
+                },
+            };
+            throttledUpdateFunction(data);
+        });
+
+        console.log('Subscribing to topic ' + rmq_topic_object_created);
+        rmqClient?.subscribe(rmq_topic_object_created, function (d) {
+            const msg = JSON.parse(d.body);
+            const data = {
+                object_created: {
+                    timestamp: msg.timestamp || Date.now(),
+                    ...msg,
                 },
             };
             throttledUpdateFunction(data);

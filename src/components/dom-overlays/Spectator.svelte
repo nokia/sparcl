@@ -25,7 +25,7 @@
     let map: Map | null;
     export let isHeadless = false; // TODO: is this still needed?
     let shouldPlaceRandomObjects = false;
-    const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any } }>();
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
     function shareObject({ lat, lon, objectDescription }: { lat: number; lon: number; objectDescription: ObjectDescription }) {
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
@@ -62,6 +62,7 @@
         dispatch('broadcast', {
             event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
             value: message_body,
+            routing_key: '/exchange/esoptron/object_created',
         });
     }
 
@@ -179,7 +180,6 @@
 
     async function messageBrokerSubmit({ url, username, password }: { url: string; username: string; password: string }) {
         await testRmqConnection({ url, username, password });
-        // TODO: add proper update function to show new assets on map instantly
         connectWithReceiveCallback({ url, username, password, updateFunction: onNetworkEvent });
     }
 </script>
