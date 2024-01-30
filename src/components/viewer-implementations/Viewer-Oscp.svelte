@@ -12,19 +12,19 @@
 -->
 
 <script lang="ts">
-    import Parent from '@components/Viewer.svelte';
-    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
-    import { Quat, Vec3 } from 'ogl';
-    import { distToLineSegment, rgbToHex, normalizeColor } from '@core/common';
-    import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '@src/stateStore';
     import { get } from 'svelte/store';
     import throttle from 'lodash/throttle';
-    import { checkGLError } from '@core/devTools';
-    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates'; // just for drawing an agent
+    import type { Quat, Vec3, Transform, Mesh, OGLRenderingContext } from 'ogl';
+    import Parent from '@components/Viewer.svelte';
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
+    import { checkGLError } from '../../core/devTools';
+    import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
-    import type { Transform, Mesh, OGLRenderingContext } from 'ogl';
+
+    import { distToLineSegment, rgbToHex, normalizeColor } from '../../core/common';
+    import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '../../stateStore';
 
     let parentInstance: Parent;
 
