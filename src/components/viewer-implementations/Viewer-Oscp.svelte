@@ -38,7 +38,7 @@
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
     let robotPathPolylines: Record<string, { robotPolyLine: Mesh; robotPolyLinePoints: Vec3[] }> = {};
     let robotPathClearTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
-    let robotTargetWaypoints: Record<string, { geopose: Geopose; model: Mesh; floorpose: Transform }> = {};
+    let targetWaypoints: Record<string, { geopose: Geopose; model: Mesh; floorpose: Transform }> = {};
     let selectedAgentIdToSend = 'TEST_ROBOT_ID'; // this is just for testing, should be null
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
 
@@ -56,6 +56,24 @@
         parentInstance.startAr(thisWebxr, this3dEngine);
 
         startSession();
+    }
+
+    function removeWaypoint({ agent_id, agent_geopose }: { agent_id: string; agent_geopose: Geopose }) {
+        // there is a waypoint known for this agent
+        const waypointLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(targetWaypoints[agent_id].geopose);
+        let waypointPosition = waypointLocalPose.position;
+        waypointPosition[1] = 0.0; // Y UP set to zero
+        const agentLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(agent_geopose);
+        let agentPosition = agentLocalPose.position;
+        agentPosition[1] = 0.0; // Y UP set to zero
+        // TODO: use 3D coordinate comparison for drones
+        const planarDistance = waypointPosition.distance(agentPosition);
+        if (planarDistance < 0.25) {
+            console.log('Waypoint hit by agent ' + agent_id);
+            new Audio('media/audio/ding-40142.mp3').play();
+            parentInstance.getRenderer().remove(targetWaypoints[agent_id].model);
+            delete targetWaypoints[agent_id];
+        }
     }
 
     /**
@@ -177,9 +195,9 @@
         playAudio?: boolean;
     }) {
         // remove any previous waypoint
-        if (robotTargetWaypoints[targetAgentId]) {
-            parentInstance.getRenderer().remove(robotTargetWaypoints[targetAgentId].model);
-            delete robotTargetWaypoints[targetAgentId];
+        if (targetWaypoints[targetAgentId]) {
+            parentInstance.getRenderer().remove(targetWaypoints[targetAgentId].model);
+            delete targetWaypoints[targetAgentId];
         }
 
         if (active == false) {
@@ -193,7 +211,7 @@
         const scale = 0.1;
         const model = parentInstance.getRenderer().addPlaceholderWithOptions(shape, localTargetPose.position, localTargetPose.quaternion, fragmentShader, options);
         model.scale.set(scale);
-        robotTargetWaypoints = { ...robotTargetWaypoints, [targetAgentId]: { model: model, geopose: globalTargetPose, floorpose: localTargetPose } };
+        targetWaypoints = { ...targetWaypoints, [targetAgentId]: { model: model, geopose: globalTargetPose, floorpose: localTargetPose } };
 
         if (playAudio) {
             new Audio('media/audio/ding-36029.mp3').play();
@@ -256,22 +274,8 @@
             parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
 
             // if the robot is close to the target in global coordinates, make the target disappear
-            if (robotTargetWaypoints[agent_id]?.geopose?.position?.lat != undefined) {
-                // there is a waypoint known for this agent
-                const waypointLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(robotTargetWaypoints[agent_id].geopose);
-                let waypointPosition = waypointLocalPose.position;
-                waypointPosition[1] = 0.0; // Y UP set to zero
-                const agentLocalPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(agent_geopose);
-                let agentPosition = agentLocalPose.position;
-                agentPosition[1] = 0.0; // Y UP set to zero
-                // TODO: use 3D coordinate comparison for drones
-                const planarDistance = waypointPosition.distance(agentPosition);
-                if (planarDistance < 0.25) {
-                    console.log('Waypoint hit by agent ' + agent_id);
-                    new Audio('media/audio/ding-40142.mp3').play();
-                    parentInstance.getRenderer().remove(robotTargetWaypoints[agent_id].model);
-                    delete robotTargetWaypoints[agent_id];
-                }
+            if (targetWaypoints[agent_id]?.geopose?.position?.lat != undefined) {
+                removeWaypoint({ agent_id, agent_geopose });
             }
         }
 
@@ -352,16 +356,11 @@
         }
     }
 
-    function shareCameraPose(localPose: XRViewerPose) {
-        // Warning: conversion from the webxr transform representation to OGL representation
+    function getGeoposeFromXRViewerPose(localPose: XRViewerPose): Geopose {
         const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
         const quaternion = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w);
-
-        const timestamp = Date.now();
-        const agent_id = $myAgentId;
-        const object_id = agent_id + '_' + timestamp; // just a proposal
         const globalObjectPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(position, quaternion);
-        const geoPose = {
+        return {
             position: {
                 lat: globalObjectPose.position.lat,
                 lon: globalObjectPose.position.lon,
@@ -374,6 +373,15 @@
                 w: globalObjectPose.quaternion.w,
             },
         };
+    }
+
+    function shareCameraPose(localPose: XRViewerPose) {
+        // Warning: conversion from the webxr transform representation to OGL representation
+
+        const timestamp = Date.now();
+        const agent_id = $myAgentId;
+        const object_id = agent_id + '_' + timestamp; // just a proposal
+        const geoPose = getGeoposeFromXRViewerPose(localPose);
 
         // // BEGIN Sparcl multiplayer demo
         // const object_description = {
@@ -494,6 +502,11 @@
 
         // Check whether the user is too close to a robot path
         throttledShowAlert(floorPose);
+        //
+        if ($myAgentId && targetWaypoints[$myAgentId]?.geopose?.position?.lat != undefined) {
+            const geoPose = getGeoposeFromXRViewerPose(floorPose);
+            removeWaypoint({ agent_id: $myAgentId, agent_geopose: geoPose });
+        }
 
         // Call parent Viewer's onXrFrameUpdate which updates performs localization and rendering
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
@@ -540,7 +553,7 @@
             }}
             on:relocalize={() => {
                 robotPathPolylines = {};
-                robotTargetWaypoints = {};
+                targetWaypoints = {};
                 reticle = null;
                 parentInstance.relocalize();
             }}
