@@ -308,24 +308,22 @@
 
         if ('message_broadcasted' in events) {
             const data = events.message_broadcasted;
-            if (data.sender != $peerIdStr) {
-                // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log('message from ' + data.sender + ': \n  ' + data.message);
-                }
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            if ('message' in data && 'sender' in data) {
+                console.log('message from ' + data.sender + ': \n  ' + data.message);
             }
+            //}
         }
 
         if ('object_created' in events) {
             const data = events.object_created;
-            if (data.sender != $peerIdStr) {
-                // ignore own messages which are also delivered
-                const scr = data.scr;
-                if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
-                    parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
-                }
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            const scr = data.scr;
+            if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
+                experimentOverlay?.objectReceived();
+                parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
             }
+            //}
         }
     }
 </script>

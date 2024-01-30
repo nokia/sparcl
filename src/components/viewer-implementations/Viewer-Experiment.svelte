@@ -449,27 +449,30 @@
             },
         };
 
-        let content = {
-            id: '',
-            type: '', //high-level OSCP type
+
+        const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+
+        const content = {
+            id: object_id,
+            type: 'ephemeral', //high-level OSCP type
             title: object_description.shape,
             refs: [],
             geopose: geoPose,
             object_description: object_description,
         };
-        let timestamp = new Date().getTime();
+        const timestamp = new Date().getTime();
 
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
-        let scr = {
+        const scr_id = object_id;
+        const scr = {
             content: content,
-            id: object_id,
+            id: scr_id,
             tenant: 'ISMAR2021demo',
-            type: 'ephemeral',
+            type: 'scr',
             timestamp: timestamp,
         };
 
-        let message_body = {
+        const message_body = {
             scr: scr,
             sender: $peerIdStr,
             timestamp: new Date().getTime(),

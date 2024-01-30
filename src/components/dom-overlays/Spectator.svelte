@@ -22,6 +22,7 @@
     import Select from './Select.svelte';
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
+    import { scr_definition } from '@oarc/scd-access';
     let map: Map | null;
     export let isHeadless = false; // TODO: is this still needed?
     let shouldPlaceRandomObjects = false;
@@ -29,11 +30,13 @@
 
     function shareObject({ lat, lon, objectDescription }: { lat: number; lon: number; objectDescription: ObjectDescription }) {
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+        const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+        const scr_id = object_id;
         const message_body = {
             scr: {
                 content: {
-                    id: '',
-                    type: '', //high-level OSCP type
+                    id: object_id,
+                    type: 'ephemeral', //high-level OSCP type
                     title: objectDescription.shape,
                     refs: [],
                     geopose: {
@@ -51,9 +54,9 @@
                     },
                     object_description: objectDescription,
                 },
-                id: $peerIdStr + '_' + uuidv4(), // TODO: only a proposal: the object id is the creator id plus a new uuid
+                id: scr_id,
                 tenant: 'ISMAR2021demo',
-                type: 'ephemeral',
+                type: 'scr',
                 timestamp: new Date().getTime(),
             },
             sender: $peerIdStr,
