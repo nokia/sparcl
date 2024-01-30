@@ -34,7 +34,7 @@
     setContext('state', parentState);
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
     /**
      * Initial setup.
@@ -229,6 +229,7 @@
         dispatch('broadcast', {
             event: 'message_broadcasted',
             value: message_body,
+            routing_key: '/exchange/esoptron/object_created',
         });
         console.log('Message sent: ' + message_body);
     }
@@ -284,6 +285,7 @@
         dispatch('broadcast', {
             event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
             value: message_body,
+            routing_key: '/exchange/esoptron/object_created',
         });
     }
 
