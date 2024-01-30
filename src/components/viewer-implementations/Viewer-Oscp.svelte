@@ -24,8 +24,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
-    import type { Mesh, OGLRenderingContext } from 'ogl';
-    import type { Transform } from 'ogl';
+    import type { Transform, Mesh, OGLRenderingContext } from 'ogl';
 
     let parentInstance: Parent;
 
