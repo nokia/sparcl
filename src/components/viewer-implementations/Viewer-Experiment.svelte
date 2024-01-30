@@ -389,7 +389,7 @@
             // when received, place the same way as a downloaded SCR.
             if (isLocalisationDone) {
                 shareMessage('Hello from ' + $peerIdStr + ' sent at ' + new Date().getTime());
-                let object_description = createRandomObjectDescription();
+                const object_description = createRandomObjectDescription();
                 //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
                 shareObject(object_description, reticle.position, reticle.quaternion);
                 //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
