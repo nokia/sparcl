@@ -49,7 +49,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     const on_connect = function (x: any) {
         console.log('RMQ connection successful!');
 
-        // now we subscribe to topics
+        // Now we can subscribe to topics.
         // Note: Stomp subscribe for a destination of the form /exchange/<name>[/<pattern>] does 3 things:
         // 1. creates an exclusive, auto-delete queue on <name> exchange;
         // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and

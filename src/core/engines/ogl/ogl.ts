@@ -20,14 +20,16 @@ import {
     Mesh,
     Plane,
     Geometry,
-    Polyline,
-    Color,
-    type OGLRenderingContext,
     Program,
     Quat,
     Vec3,
+    Polyline,
+    Color,
     type Vec3Tuple,
+    type OGLRenderingContext,
 } from 'ogl';
+
+
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
@@ -340,7 +342,7 @@ export default class ogl {
      * @param object_description {*}    Key-value pairs of object properties
      * @returns {Mesh}  The newly created mesh
      */
-    addDynamicObject(object_id: string, position: number | Vec3 | Vec3Tuple, orientation: Quat, object_description: ObjectDescription | null = null) {
+    addDynamicObject(object_id: string, position: Vec3, orientation: Quat, object_description: ObjectDescription | null = null) {
         console.log('OGL addDynamicObject: ' + object_id);
         let description = object_description || {
             version: 2,
@@ -350,10 +352,6 @@ export default class ogl {
             transparent: true,
             options: {},
         };
-        //console.log(description);
-        //console.log(position);
-        //console.log(orientation);
-        //console.log(" ");
         const mesh = createModel(gl, description.shape, description.color, description.transparent, description.options, description.scale);
         mesh.position.set(position);
         mesh.quaternion.set(orientation, 0, 0, 1);
