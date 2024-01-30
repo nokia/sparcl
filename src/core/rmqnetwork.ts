@@ -11,12 +11,12 @@ const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
 let rmqClient: Client | null = null;
 
 export async function testRmqConnection({ url, username, password }: { url: string; username: string; password: string }) {
-    return await new Promise<boolean>((resolve, reject) => {
+    return await new Promise<void>((resolve, reject) => {
         const rmq = stomp.client(url);
         rmq.debug = () => {};
         const onConnect = () => {
             rmq.disconnect(() => {});
-            resolve(true);
+            resolve(undefined);
         };
         const onError = (err: Frame | string) => {
             rmq.disconnect(() => {});
@@ -28,6 +28,8 @@ export async function testRmqConnection({ url, username, password }: { url: stri
 }
 
 export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
+    // disconnect first if there already was a connection established
+    rmqDisconnect();
     const throttledUpdateFunction = throttle((data) => {
         if (updateFunction) {
             updateFunction(data);
@@ -37,7 +39,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
     console.log('Connecting to RMQ ' + url);
-    console.log('url', url)
+    console.log('url', url);
     rmqClient = stomp.client(url);
     rmqClient.debug = function (str) {
         // for debugging, we can print all received messages to the console (or even to a separate HTML view)
