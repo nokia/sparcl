@@ -53,7 +53,6 @@
      */
     export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         parentInstance.startAr(thisWebxr, this3dEngine);
-
         startSession();
     }
 
@@ -94,20 +93,18 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr: webxr, result: XRSession, gl: OGLRenderingContext | null) => {
+            (xr: webxr, session: XRSession, gl: OGLRenderingContext | null) => {
                 if (!gl) {
                     throw new Error('gl is undefined');
                 }
-                xr.glBinding = new XRWebGLBinding(result, gl);
+                xr.glBinding = new XRWebGLBinding(session, gl);
                 xr.initCameraCapture(gl);
-
                 myGl = gl;
-
                 if (useReticle) {
                     // request hit testing
-                    result
+                    session
                         .requestReferenceSpace('viewer')
-                        .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
+                        .then((refSpace) => session.requestHitTestSource?.({ space: refSpace }))
                         .then((source) => (hitTestSource = source));
                 }
             },
@@ -461,10 +458,7 @@
         if (useReticle && myGl) {
             checkGLError(myGl, 'before creating reticle');
             if (reticle == undefined || reticle == null) {
-                //reticle = parentInstance.getRenderer().addReticle();
-                //reticle = parentInstance.getRenderer().addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/Duck.glb');
-                //reticle = parentInstance.getRenderer().addPlaceholder([], {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1});
-                reticle = parentInstance.getRenderer().addMarkerObject();
+                reticle = parentInstance.getRenderer().addReticle();
             }
             checkGLError(myGl, 'after creating reticle');
 
@@ -556,7 +550,7 @@
             on:relocalize={() => {
                 robotPathPolylines = {};
                 targetWaypoints = {};
-                reticle = null;
+                reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
                 parentInstance.relocalize();
             }}
         />

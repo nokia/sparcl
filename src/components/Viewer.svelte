@@ -14,6 +14,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
+    import { debounce, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
     import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -57,12 +58,14 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
 
+    let unableToStartSession = false;
     let doCaptureImage = false;
     let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
-    let firstPoseReceived = false,
-        hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
-    let unableToStartSession = false;
+    let firstPoseReceived = false;
+    export let hasLostTracking = true;
+    let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
+
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -143,6 +146,18 @@
     }
 
     /**
+     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
+     * is shown to let the user know that the tracking was lost.
+     */
+    export function handlePoseHeartbeat() {
+        hasLostTracking = false;
+        if (poseFoundHeartbeat === undefined) {
+            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
+        }
+        poseFoundHeartbeat();
+    }
+
+    /**
      * Handles update loop when AR Cloud mode is used.
      *
      * @param time  DOMHighResTimeStamp     time offset at which the updated
@@ -151,6 +166,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+        handlePoseHeartbeat();
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -161,7 +178,7 @@
 
         // TODO: Handle multiple views and the localisation correctly
         for (let view of floorPose.views) {
-            let viewport = xrEngine.setViewportForView(view);
+            xrEngine.setViewportForView(view);
 
             handleExternalExperience(view);
 
@@ -419,7 +436,7 @@
         $receivedScrs = [];
         $context.receivedContentTitles = [];
 
-        tdEngine.clearScene();
+        tdEngine.clearScene();  // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
 
         $context.showFooter = true;
     }
@@ -741,7 +758,7 @@
 <canvas id="application" bind:this={canvas}></canvas>
 
 <aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
-    <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
+    <iframe title='externalcontentiframe' class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg" bind:this={closeExperience} />
 
     <!--  Space for UI elements -->
