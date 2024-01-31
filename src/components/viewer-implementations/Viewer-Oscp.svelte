@@ -144,17 +144,18 @@
             return;
         }
 
-        let latestGlobalPose = $recentLocalisation.geopose;
-        let latestLocalPose = $recentLocalisation.floorpose.transform;
-
-        // TODO: is this needed at all?
-        // HACK: this is to initialize the internal alignment matrices.
-        // Normally this is done when the first contents arrives, but we have no contents yet at this point.
-        if (!latestGlobalPose.position || !latestGlobalPose.quaternion) {
-            console.log(`latestGlobalPose is not defined properly: ${latestGlobalPose}`);
-            throw new Error(`latestGlobalPose is not defined properly: ${latestGlobalPose}`);
-        }
-        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, { position: latestGlobalPose.position, quaternion: latestGlobalPose.quaternion });
+/// I think this is not needed anymore since I decoupled the onLocalizationSuccess() from placeContent()
+///        const latestGlobalPose = $recentLocalisation.geopose as Geopose;
+///        /const localPos = $recentLocalisation.floorpose.transform.position;
+///        const localOri = $recentLocalisation.floorpose.transform.orientation;
+///        const latestLocalPose = {
+///            position: new Vec3(localPos.x, localPos.y, localPos.z),
+///            orientation: new Quat(localOri.x, localOri.y, localOri.z, localOri.w),
+///        };
+///        // TODO: is this needed at all?
+///        // HACK: this is to initialize the internal alignment matrices.
+///        // Normally this is done when the first contents arrives, but we have no contents yet at this point.
+///        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, latestGlobalPose);
 
         // local target pose is from reticle
         const localTargetPose = { position: reticle.position, quaternion: reticle.quaternion };
