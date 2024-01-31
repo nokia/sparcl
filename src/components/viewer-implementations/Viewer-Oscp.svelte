@@ -14,7 +14,7 @@
 <script lang="ts">
     import { get } from 'svelte/store';
     import throttle from 'lodash/throttle';
-    import type { Quat, Vec3, Transform, Mesh, OGLRenderingContext } from 'ogl';
+    import { Quat, Vec3, Transform, Mesh, type OGLRenderingContext } from 'ogl';
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import { checkGLError } from '../../core/devTools';
@@ -22,9 +22,9 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
-
-    import { distToLineSegment, rgbToHex, normalizeColor } from '../../core/common';
+    import { distanceToLineSegment, rgbToHex, normalizeColor } from '../../core/common';
     import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '../../stateStore';
+
 
     let parentInstance: Parent;
 
@@ -121,7 +121,7 @@
         for (const view of floorPose.views) {
             for (const { robotPolyLinePoints } of Object.values(robotPathPolylines)) {
                 for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
-                    const distance = distToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' });
+                    const distance = distanceToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' });
                     if (distance <= threshold) {
                         return true;
                     }
@@ -477,7 +477,9 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        parentInstance.getRenderer().updateReticlePose(reticle, position, orientation);
+                        parentInstance.getRenderer().updateReticlePose(reticle,
+                                new Vec3(position.x, position.y, position.z),
+                                new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                         reticle.visible = true;
                     }
                 } else {

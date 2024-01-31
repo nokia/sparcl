@@ -195,7 +195,7 @@ export function normalizeColor(color: number | null) {
 }
 
 // https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-export function distToLineSegment({
+export function distanceToLineSegment({
     point,
     lineStart,
     lineEnd,
