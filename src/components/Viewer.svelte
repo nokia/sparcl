@@ -63,14 +63,14 @@
     let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false;
-    export let hasLostTracking = true;
     let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
 
 
     // TODO: Setup event target array, based on info received from SCD
 
-    const context: Writable<{ showFooter: boolean; isLocalized: boolean; isLocalizing: boolean; isLocalisationDone: boolean; receivedContentTitles: any[] }> = getContext('state') || writable();
+    const context: Writable<{ hasLostTracking: boolean ;showFooter: boolean; isLocalized: boolean; isLocalizing: boolean; isLocalisationDone: boolean; receivedContentTitles: any[] }> = getContext('state') || writable();
     context.set({
+        hasLostTracking: true,
         showFooter: false,
         isLocalized: false,
         isLocalizing: false, // while waiting for GeoPose service localization
@@ -150,9 +150,9 @@
      * is shown to let the user know that the tracking was lost.
      */
     export function handlePoseHeartbeat() {
-        hasLostTracking = false;
+        $context.hasLostTracking = false;
         if (poseFoundHeartbeat === undefined) {
-            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
+            poseFoundHeartbeat = debounce(() => ($context.hasLostTracking = true), 300);
         }
         poseFoundHeartbeat();
     }
@@ -289,7 +289,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        hasLostTracking = true;
+        $context.hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }
 
@@ -788,7 +788,7 @@
         </footer>
     {/if}
 
-    {#if hasLostTracking}
+    {#if $context.hasLostTracking}
         <div id="trackinglostindicator"></div>
     {/if}
 </aside>
