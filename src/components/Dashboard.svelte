@@ -42,10 +42,11 @@
         debug_enablePointCloudContents,
         myAgentColor,
         myAgentName,
-        availableMessageBrokerServices,
         activeExperiment,
         selectedMessageBrokerService,
         messageBrokerAuth,
+        debug_useOverrideGeopose,
+        debug_overrideGeopose,
         allowMessageBroker,
     } from '@src/stateStore';
 
@@ -56,15 +57,17 @@
 
     import Selector from '@experiments/Selector.svelte';
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
+    import { setInitialLocationAndServices } from '../core/locationTools';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
+    let overrideGeoposePromise: Promise<void>;
 
     let rmqTestPromise: Promise<void>;
     onMount(() => {
-        if ($selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
+        if ($allowMessageBroker && $selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
     });
 
@@ -89,7 +92,6 @@
 </div>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
-
     <summary>Application state</summary>
     <dl>
         <dt>Location access</dt>
@@ -278,7 +280,6 @@
             {/if}
         {/await}
     {/if}
-
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
@@ -321,7 +322,6 @@
                 {/each}
             {/if}
         </pre>
-        <p class="note">Change active after reload</p>
     </dl>
 
     <dl>
@@ -356,6 +356,31 @@
         <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
         <label for="enablePointCloudContents">Enable point cloud contents</label>
     </div>
+
+    <div>
+        <input id="overrideGeopose" type="checkbox" bind:checked={$debug_useOverrideGeopose} />
+        <label for="overrideGeopose">Override geopose</label>
+    </div>
+    {#if $debug_useOverrideGeopose}
+        <form style="margin-top: 5px;">
+            <label style="display: inline-block; min-width: 100px;" for="lat">Latitude</label>
+            <input name="lat" type="text" bind:value={$debug_overrideGeopose.position.lat} />
+            <label style="display: inline-block; min-width: 100px;" for="lon">Longitude</label>
+            <input name="lon" type="text" bind:value={$debug_overrideGeopose.position.lon} />
+        </form>
+        <div class="center" style="padding-top: 1rem;">
+            <button on:click={() => (overrideGeoposePromise = setInitialLocationAndServices())}>Use position</button>
+        </div>
+        {#if overrideGeoposePromise}
+            {#await overrideGeoposePromise}
+                <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
+            {:then}
+                <p class="center" style="color: green">Successfully set geoposition</p>
+            {:catch error}
+                <p class="center" style="color: red">Could not set geoposition. Reason: {error}</p>
+            {/await}
+        {/if}
+    {/if}
 </details>
 
 {@html supportedCountries}
@@ -386,6 +411,20 @@
         font-size: 25px;
         letter-spacing: 0;
 
+        background-color: white;
+    }
+
+    .center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    button {
+        border: 2px solid var(--theme-color);
+        border-radius: 0.5rem;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
         background-color: white;
     }
 
@@ -544,5 +583,16 @@
 
     .serviceurl {
         font-size: 8px;
+    }
+
+    .center-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    .spinner {
+        height: 50px;
     }
 </style>

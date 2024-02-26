@@ -15,7 +15,6 @@
     import type ogl from '../../../core/engines/ogl/ogl';
     import type { ObjectDescription } from '../../../types/xr';
 
-
     let parentInstance: Parent;
     let xrEngine: webxr;
     let tdEngine: ogl;
@@ -71,7 +70,7 @@
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
-            []
+            [],
         );
 
         tdEngine.setExperimentTapHandler(experimentTapHandler);
@@ -96,10 +95,10 @@
 
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
-            if ($settings.localisation && !$parentState.isLocalized) {
+            if ($settings.localizationRequired && !$parentState.isLocalized) {
                 parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
-                $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
+                $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
                 if (reticle === null) {
                     reticle = tdEngine.addReticle();
                 }
@@ -107,9 +106,7 @@
                 const position = reticlePose?.transform.position;
                 const orientation = reticlePose?.transform.orientation;
                 if (position && orientation) {
-                    tdEngine.updateReticlePose(reticle,
-                            new Vec3(position.x, position.y, position.z),
-                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                    tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                 }
             }
         }
@@ -159,24 +156,24 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if ($parentState.hasLostTracking == false && reticle != null) {
-            //NOTE: ISMAR2021 experiment:
-            // keep track of last localization (global and local)
-            // when tapped, determine the global position of the tap, and save the global location of the object
-            // create SCR from the object and share it with the others
-            // when received, place the same way as a downloaded SCR.
-            if ($parentState.isLocalisationDone) {
-                shareMessage('Hello from ' + $peerIdStr + ' sent at ' + new Date().getTime());
-                const object_description = createRandomObjectDescription();
-
-                tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
-
-                shareObject(object_description, reticle.position, reticle.quaternion);
-                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
-
-                experimentOverlay?.objectPlaced();
-            }
+        if (reticle == null) {
+            return;
         }
+        if ($parentState.hasLostTracking) {
+            return;
+        }
+        if ($settings.localizationRequired && !$parentState.isLocalisationDone) {
+            return;
+        }
+
+        //NOTE: ISMAR2021 experiment:
+        // keep track of last localization (global and local)
+        // when tapped, determine the global position of the tap, and save the global location of the object
+        // create SCR from the object and share it with the others
+        // when received, place the same way as a downloaded SCR.
+        const object_description = createRandomObjectDescription();
+        shareObject(object_description, reticle.position, reticle.quaternion);
+        experimentOverlay?.objectSent();
     }
 
     /**
@@ -307,8 +304,8 @@
             //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
             const scr = data.scr;
             if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
-                experimentOverlay?.objectReceived();
                 parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
+                experimentOverlay?.objectReceived();
             }
             //}
         }
@@ -317,7 +314,7 @@
 
 <Parent bind:this={parentInstance} on:arSessionEnded>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
-        {#if $settings.localisation && !isLocalisationDone}
+        {#if $settings.localizationRequired && !isLocalisationDone}
             <p>{receivedContentTitles.join()}</p>
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
