@@ -145,8 +145,6 @@ export const ssr = writable<SSR[]>([]);
 export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        selectedGeoPoseService.set(null);
-
         const geoposeServices: Service[] = [];
         for (let record of $ssr) {
             record.services.map((service) => {
@@ -207,7 +205,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
         selectedP2pService.set(null);
-
         const p2pServices: Service[] = [];
         for (let record of $ssr) {
             record.services.forEach((service) => {
@@ -218,7 +215,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
         }
         set(p2pServices);
         // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
         if (get(selectedP2pService) === null && p2pServices.length > 0) {
             selectedP2pService.set(p2pServices[0]);
         }
@@ -312,7 +308,7 @@ allowP2pNetwork.subscribe((value) => {
  *
  * @type {Writable<string>}
  */
-export const p2pNetworkState = writable('not connected');
+export const p2pNetworkState = writable<'connected' | 'not connected'>('not connected');
 
 /**
  * Alphanumeric uuid string that identifies this client in the P2P network.
@@ -402,6 +398,18 @@ const storedDebug_enablePointCloudContents = localStorage.getItem('debug_enableP
 export const debug_enablePointCloudContents = writable(storedDebug_enablePointCloudContents);
 debug_enablePointCloudContents.subscribe((value) => {
     localStorage.setItem('debug_enablePointCloudContents', value === true ? 'true' : 'false');
+});
+
+/**
+ * Enable/disable OGC Point of Interest contents
+ *
+ * @type {Writable<boolean>}
+ */
+const enableOGCFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents');
+const storedDebug_enableOGCPoIContents = enableOGCFromLocalStorage === 'true' || enableOGCFromLocalStorage == null; // set true if stored true or undefined
+export const debug_enableOGCPoIContents = writable(storedDebug_enableOGCPoIContents);
+debug_enableOGCPoIContents.subscribe((value) => {
+    localStorage.setItem('debug_enableOGCPoIContents', value === true ? 'true' : 'false');
 });
 
 /**
@@ -525,4 +533,10 @@ selectedMessageBrokerService.subscribe((value) => {
         // initialize object
         messageBrokerAuth.set({ [value.guid]: { username: '', password: '' }, ...currentMessageBrokerAuth });
     }
+});
+
+const storedAutomergeDocumentUrl = localStorage.getItem('automergeDocumentUrl');
+export const automergeDocumentUrl = writable(storedAutomergeDocumentUrl);
+automergeDocumentUrl.subscribe((value) => {
+    localStorage.setItem('automergeDocumentUrl', value!);
 });

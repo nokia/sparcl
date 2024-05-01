@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { setContext } from 'svelte';
+    import { onMount, setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
     import { get, writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
@@ -14,6 +14,7 @@
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
     import type { ObjectDescription } from '../../../types/xr';
+    import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -29,6 +30,16 @@
     let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
+    $: {
+        if ($recentLocalisation?.geopose.position != null) {
+            const assets = getAutomergeDocumentData();
+            if (assets) {
+                for (const asset of assets) {
+                    onNetworkEvent({ object_created: asset });
+                }
+            }
+        }
+    }
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
@@ -106,7 +117,9 @@
                 const position = reticlePose?.transform.position;
                 const orientation = reticlePose?.transform.orientation;
                 if (position && orientation) {
-                    tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                    tdEngine.updateReticlePose(reticle,
+                            new Vec3(position.x, position.y, position.z),
+                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                 }
             }
         }

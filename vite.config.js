@@ -3,15 +3,20 @@ import path from 'path';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import glsl from 'vite-plugin-glsl';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import wasm from 'vite-plugin-wasm';
 import typescript from '@rollup/plugin-typescript';
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    build: {
+        target: 'esnext',
+    },
     plugins: [
         svelte(),
         glsl(),
         //basicSsl(),
         typescript(),
+        wasm(),
     ],
     resolve: {
         alias: {

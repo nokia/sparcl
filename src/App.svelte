@@ -31,14 +31,14 @@
         availableP2pServices,
         experimentModeSettings,
         hasIntroSeen,
-        initialLocation,
         isLocationAccessAllowed,
-        selectedP2pService,
         showDashboard,
         ssr,
         allowMessageBroker,
         selectedMessageBrokerService,
         messageBrokerAuth,
+        p2pNetworkState,
+        recentLocalisation,
     } from './stateStore';
     import { ARMODES } from './core/common';
     import * as rmq from '@src/core/rmqnetwork';
@@ -65,6 +65,8 @@
     let isHeadless = false;
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
+
+    const getViewerInstance = () => viewerInstance;
 
     /**
      * Reactive function to define if the AR viewer can be shown.
@@ -93,24 +95,28 @@
      */
     $: {
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
-            import('@src/core/p2pnetwork').then((p2pModule) => {
-                if (!p2p) {
+            if (!p2p) {
+                import('@src/core/p2pnetwork').then((p2pModule) => {
                     p2p = p2pModule;
-
-                    const selected = $selectedP2pService;
-
-                    const service = $availableP2pServices.find((service) => service.id === selected?.id);
-                    const headlessPeerId = service?.properties?.find((property) => property.type === 'peerid')?.value;
-                    // TODO: this property should be headlessPeerId (need to change the service too!!!)
-
-                    if (headlessPeerId) {
-                        p2p.connect(headlessPeerId, isHeadless, (data: any) => {
-                            viewerInstance?.onNetworkEvent?.(data); //TODO: why does it not work with viewer?
+                });
+            }
+            if (p2p) {
+                if ($p2pNetworkState === 'not connected') {
+                    if (spectator) {
+                        p2p!.connectFromStateStore((data: any) => {
                             spectator?.onNetworkEvent(data);
                         });
                     }
+                    if (viewerInstance) {
+                        p2p!.connectFromStateStore((data: any) => {
+                            if ($recentLocalisation?.geopose?.position != undefined) {
+                                // getter is important in this callback, because the viewerInstance can get destroyed and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
+                                getViewerInstance()?.onNetworkEvent?.(data);
+                            }
+                        });
+                    }
                 }
-            });
+            }
         } else if (!isHeadless) {
             p2p?.disconnect();
             p2p = null;
@@ -138,19 +144,25 @@
                 const headlessPeerId = urlParams.get('peerid');
                 const url = urlParams.get('signal');
                 const port = urlParams.get('port');
+                const path = urlParams.get('path') || undefined;
 
                 console.log('Starting headless client...');
                 console.log('  peerid: ' + headlessPeerId);
                 console.log('  signal: ' + (url ? url : 'PeerJS default'));
                 console.log('  port: ' + (port ? port : 'PeerJS default'));
+                console.log('  path: ' + (path ? path : 'PeerJS default'));
 
-                p2p.initialSetup();
                 if (headlessPeerId) {
                     const portToUse = port ? parseInt(port) : null;
-                    p2p.connectWithUrl(headlessPeerId, isHeadless, url, portToUse, (data: any) => {
-                        // DEBUG
-                        console.log(data);
-                        currentSharedValues = data;
+                    p2p.connectWithExplicitUrl({
+                        url,
+                        port: portToUse,
+                        path,
+                        updateftn: (data: any) => {
+                            // DEBUG
+                            console.log(data);
+                            currentSharedValues = data;
+                        },
                     });
                 }
             });
@@ -269,12 +281,18 @@
      *
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
-    function handleBroadcast(event: CustomEvent<any>) {
+    function handleBroadcast(
+        event: CustomEvent<{
+            event: string;
+            value?: Record<string, any> | undefined;
+            routing_key?: string | undefined;
+        }>,
+    ) {
         if (p2p != null) {
             p2p.send(event.detail);
         }
 
-        if (event.detail.routing_key != undefined) {
+        if (event.detail.routing_key != undefined && event.detail.value) {
             rmq.send(event.detail.routing_key, event.detail.value);
         }
     }
@@ -302,7 +320,7 @@
 <main>
     {#if !isHeadless}
         {#if shouldShowDashboard && $arIsAvailable}
-            <Dashboard bind:this={dashboard} on:okClicked={startAr} />
+            <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startAr} />
         {/if}
 
         {#if (showWelcome || showOutro) && $arIsAvailable}
