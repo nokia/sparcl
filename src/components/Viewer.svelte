@@ -48,6 +48,8 @@
     import type webxr from '../core/engines/webxr';
     import type ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
+    import { SeatReservationManager } from '@components/viewer-implementations/SeatReservationManager';
+    import { RobotAgentManager } from '@components/viewer-implementations/RobotAgentManager';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
@@ -606,28 +608,29 @@
                     }
 
                     case 'sensor_stream': {
-                        let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
-                            return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
-                        }); // -1 if not found
-                        if (chair_id_index && chair_id_index >= 0) {
-                            let globalObjectPose = record.content.geopose;
-                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                            let chair_id = record.content.definitions?.[chair_id_index].value;
-                            if (chair_id) {
-                                if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
-                                    tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                                } else {
-                                    tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                                }
-                            }
+
+                        // Nokia seat reservation demo
+                        if (record.tenant == "oscptestgs") { // TODO: these should come from a specific SCD topic
+                            SeatReservationManager.createSeatFromRecord(record, tdEngine);
                         }
 
-                        // TODO: addObject should return some ID in the scene
-                        // the sensor's real-world ID shoudl be an entry in the SCR
+                        // handle general sensor stream objects
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+
+                        if (tdEngine.getDynamicObjectMesh(record.content.id) != null) {
+                            tdEngine.updateDynamicObject(record.content.id, localObjectPose.position, localObjectPose.quaternion, null);
+                        } else {
+                            tdEngine.addDynamicObject(record.content.id, localObjectPose.position, localObjectPose.quaternion, null);
+                        }
+
+                        // TODO: addDynamicObject should return some ID in the scene
+                        // the sensor's real-world ID should be an entry in the SCR
                         // we should store the object's ID in the scene together with the SCR ID in a map
                         // when we receive a new sensor value, we check the incoming sensorID, look it up in the map
-                        // if it does not exist, we create a model for it with tdEngine.addObject()
-                        // if it exists, we retrieve the corresponding model and manipulate it
+                        // if it does not exist, we create a model for it with tdEngine.addDynamicObject()
+                        // if it exists, we retrieve the corresponding model and manipulate it with updateDynamicObject()
+
                         break;
                     }
 
@@ -667,7 +670,7 @@
 
                     case 'POI': {
                         if (!$debug_enableOGCPoIContents) {
-                            console.log('An POI content was received but this type is disabled');
+                            console.log('A POI content was received but this type is disabled');
                             break;
                         }
                         const url = record.content.refs ? record.content.refs[0].url : '';
