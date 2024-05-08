@@ -48,11 +48,20 @@
     import type webxr from '../core/engines/webxr';
     import type ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
-    import { SeatReservationManager } from '@components/viewer-implementations/SeatReservationManager';
-    import { RobotAgentManager } from '@components/viewer-implementations/RobotAgentManager';
+    import * as SeatReservationManager from '@src/components/viewer-implementations/SeatReservationManager';
+    import * as RobotAgentManager from '@components/viewer-implementations/RobotAgentManager';
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
+    const dispatch = createEventDispatcher<
+    {
+        arSessionEnded: undefined,
+        broadcast: {
+            event: string;
+            value?: any;
+            routing_key?: string;
+        }
+    }
+    >();
 
     onDestroy(() => {
         $recentLocalisation.geopose = {};
@@ -609,21 +618,21 @@
 
                     case 'sensor_stream': {
 
-                        // Nokia seat reservation demo
-                        if (record.tenant == "oscptestgs") { // TODO: these should come from a specific SCD topic
-                            SeatReservationManager.createSeatFromRecord(record, tdEngine);
-                        }
-
                         // handle general sensor stream objects
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
 
+                        // Nokia seat reservation demo
+                        if (record.tenant == "oscptestgs") { // TODO: these should come from a specific SCD topic
+                            SeatReservationManager.createSeatFromRecord(record, tdEngine, localObjectPose, dispatch);
+                        }
+/*
                         if (tdEngine.getDynamicObjectMesh(record.content.id) != null) {
                             tdEngine.updateDynamicObject(record.content.id, localObjectPose.position, localObjectPose.quaternion, null);
                         } else {
                             tdEngine.addDynamicObject(record.content.id, localObjectPose.position, localObjectPose.quaternion, null);
                         }
-
+*/
                         // TODO: addDynamicObject should return some ID in the scene
                         // the sensor's real-world ID should be an entry in the SCR
                         // we should store the object's ID in the scene together with the SCR ID in a map

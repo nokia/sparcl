@@ -400,9 +400,19 @@ export default class ogl {
         }
         console.log(object_id + ' has changed!');
         let new_object_description = object_description ? { ...object_description } : null;
+
         // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
+        // if there was an event handler on the old object, we transfer that to the new object (currently only one event handler is supported)
+        const eventHandler = this.getClickEvent(object_id);
+        console.log("XXXX");
+        console.log(object_id);
+        console.log(eventHandler);
+
         this.removeDynamicObject(object_id);
-        this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        const newObject = this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        if (eventHandler) {
+            this.addClickEvent(newObject, eventHandler)
+        }
         return true;
     }
 
@@ -539,6 +549,19 @@ export default class ogl {
             model,
             handler,
         };
+    }
+
+    /**
+     * Return the event handler of the model given by id
+     *
+     * @param modelId  string       The model id
+     */
+    getClickEvent(modelId:string) {
+        const meshId = this.getDynamicObjectMesh(modelId)?.id;
+        if (meshId && eventHandlers[meshId]) {
+            return eventHandlers[meshId].handler;
+        }
+        return undefined;
     }
 
     /**

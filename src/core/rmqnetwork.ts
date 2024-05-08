@@ -140,10 +140,12 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
             const msg = JSON.parse(d.body);
             console.log(msg);
             const data = {
-                reservation_status_changed: {
+                reservation_status_changed: msg
+                /* {
                     chair_id: msg.chair_id,
                     reserved: msg.reserved,
-                },
+                    userid: msg.userid,
+                }*/
             };
             updateFunction(data);
         });
