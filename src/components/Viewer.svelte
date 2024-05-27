@@ -609,7 +609,7 @@
                         let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
                             return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
                         }); // -1 if not found
-                        if (chair_id_index && chair_id_index >= 0) {
+                        if (chair_id_index != undefined && chair_id_index >= 0) {
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             let chair_id = record.content.definitions?.[chair_id_index].value;
