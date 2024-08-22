@@ -23,7 +23,7 @@ The main components of the OSCP and the interaction flow between a client and th
 ## sparcl
 spARcl is a basic 3D augmented reality viewer application, specialized for the requirements of an AR Cloud environment. spARcl can be used anywhere where OSCP-compliant services are available. The main parts providing spARcl's functionality are:
 
-* [GeoPose](https://github.com/opengeospatial/GeoPose), an emerging standard under development in the Open Geospatial Consortium that when implemented will permit components and services to obtain, save/record, share and communicate geospatial position and orientation of any real or virtual objects with 6 degrees of freedom in a consistent fashion.
+* [GeoPose](https://github.com/opengeospatial/GeoPose), an approved standard in the Open Geospatial Consortium that permits components and services to obtain, save/record, share and communicate geospatial position and orientation of any real or virtual objects with 6 degrees of freedom in a consistent fashion.
 * [GeoPose Protocol](https://github.com/OpenArCloud/oscp-geopose-protocol) is a protocol for visual positioning services in the OSCP
 * [Spatial Discovery Services](https://www.openarcloud.org/oscp) which, through a local listing of references in a “Spatial Discovery Service” will provide seamless access to content, services, application communication channels that are available in a user’s location. It is conceptually similar DNS, but operating in a more distributed way by focusing on referencing local resources. Currently, [Augmented City](https://www.augmented.city/) is the only service provider supporting OSCP, but other service providers are most welcome to interface with it.
 * [automerge](https://github.com/automerge/automerge), and [perge](https://github.com/sammccord/perge), handling the synchronization of data between devices over a local peer-to-peer network.
@@ -40,3 +40,27 @@ Note that the platform is still in early prototype phase and setting up the serv
 To make spARcl development and content creation easier, specific *development* and *experiment* modes are available which remove these requirements and place some content near the latest localization point.
 
 We hope this quick overview got you interested to learn more and even try it out. You're very welcome to do so. Further documentation is upcoming, and the current version of the can be tested at [https://sparcl.cloudpose.io/](https://sparcl.cloudpose.io/) (currently only with Android Chrome).
+
+## References
+```
+@INPROCEEDINGS{9974229,
+  author={Sörös, Gábor and Nilsson, John and Wu, Nan and Shane, Jennifer and Kadlubsky, Alina},
+  booktitle={2022 IEEE International Symposium on Mixed and Augmented Reality Adjunct (ISMAR-Adjunct)}, 
+  title={Demo: End-to-end open-source location-based augmented reality in 5G}, 
+  year={2022},
+  volume={},
+  number={},
+  pages={897-898},
+  doi={10.1109/ISMAR-Adjunct57072.2022.00194}}
+```
+```
+@INPROCEEDINGS{9585798,
+  author={Jackson, James and Vogt, Michael and Sörös, Gábor and Salazar, Mikel and Fedorenko, Sergey},
+  booktitle={2021 IEEE International Symposium on Mixed and Augmented Reality Adjunct (ISMAR-Adjunct)}, 
+  title={Demo: The First Open AR Cloud Testbed}, 
+  year={2021},
+  volume={},
+  number={},
+  pages={495-496},
+  doi={10.1109/ISMAR-Adjunct54149.2021.00117}}
+```
