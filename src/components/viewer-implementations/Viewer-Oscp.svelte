@@ -22,8 +22,12 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
-    import { distanceToLineSegment, rgbToHex, normalizeColor } from '../../core/common';
-    import { isUserOnRobotPath, myAgentName, myAgentId, myAgentColor, recentLocalisation } from '../../stateStore';
+    import { rgbToHex, normalizeColor } from '../../core/common';
+    import { myAgentName, myAgentId, myAgentColor, recentLocalisation } from '../../stateStore';
+    import colorfulFragment from '@shaders/colorfulfragment.glsl';
+    import { createEventDispatcher, onMount } from 'svelte';
+    import type { Geopose } from '@oarc/scd-access';
+    import { RobotPathVisualizer } from '../../core/robot-path-visualizer';
     import * as SeatReservationManager from '@src/components/viewer-implementations/SeatReservationManager';
 
     let parentInstance: Parent;
@@ -35,14 +39,9 @@
     let reticle: Transform | null = null; // TODO: should be Mesh
 
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
-    let robotPathPolylines: Record<string, { robotPolyLine: Mesh; robotPolyLinePoints: Vec3[] }> = {};
-    let robotPathClearTimeouts: Record<string, ReturnType<typeof setTimeout>> = {};
     let targetWaypoints: Record<string, { geopose: Geopose; model: Mesh; floorpose: Transform }> = {};
     let selectedAgentIdToSend = 'TEST_ROBOT_ID'; // this is just for testing, should be null
-    import colorfulFragment from '@shaders/colorfulfragment.glsl';
-
-    import { createEventDispatcher } from 'svelte';
-    import type { Geopose } from '@oarc/scd-access';
+    let robotPathVisualizer = new RobotPathVisualizer();
     const dispatcher = createEventDispatcher();
 
     /**
@@ -113,21 +112,6 @@
         );
     }
 
-    function isIntersectingWithRobotPath(floorPose: XRViewerPose) {
-        const threshold = 0.3;
-        for (const view of floorPose.views) {
-            for (const { robotPolyLinePoints } of Object.values(robotPathPolylines)) {
-                for (let i = 0; i < robotPolyLinePoints.length - 1; i++) {
-                    const distance = distanceToLineSegment({ point: view.transform.position, lineStart: robotPolyLinePoints[i], lineEnd: robotPolyLinePoints[i + 1], projectionAxis: 'y' });
-                    if (distance <= threshold) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
-    }
-
     function handleSendWaypoint() {
         if (!selectedAgentIdToSend) {
             return;
@@ -141,18 +125,18 @@
             return;
         }
 
-/// I think this is not needed anymore since I decoupled the onLocalizationSuccess() from placeContent()
-///        const latestGlobalPose = $recentLocalisation.geopose as Geopose;
-///        /const localPos = $recentLocalisation.floorpose.transform.position;
-///        const localOri = $recentLocalisation.floorpose.transform.orientation;
-///        const latestLocalPose = {
-///            position: new Vec3(localPos.x, localPos.y, localPos.z),
-///            orientation: new Quat(localOri.x, localOri.y, localOri.z, localOri.w),
-///        };
-///        // TODO: is this needed at all?
-///        // HACK: this is to initialize the internal alignment matrices.
-///        // Normally this is done when the first contents arrives, but we have no contents yet at this point.
-///        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, latestGlobalPose);
+        /// I think this is not needed anymore since I decoupled the onLocalizationSuccess() from placeContent()
+        ///        const latestGlobalPose = $recentLocalisation.geopose as Geopose;
+        ///        /const localPos = $recentLocalisation.floorpose.transform.position;
+        ///        const localOri = $recentLocalisation.floorpose.transform.orientation;
+        ///        const latestLocalPose = {
+        ///            position: new Vec3(localPos.x, localPos.y, localPos.z),
+        ///            orientation: new Quat(localOri.x, localOri.y, localOri.z, localOri.w),
+        ///        };
+        ///        // TODO: is this needed at all?
+        ///        // HACK: this is to initialize the internal alignment matrices.
+        ///        // Normally this is done when the first contents arrives, but we have no contents yet at this point.
+        ///        parentInstance.getRenderer().updateGeoAlignment(latestLocalPose, latestGlobalPose);
 
         // local target pose is from reticle
         const localTargetPose = { position: reticle.position, quaternion: reticle.quaternion };
@@ -296,32 +280,7 @@
 
         if ('robot_path' in events) {
             const msg: { agent_id: string; geoposes: Geopose[] } = events.robot_path;
-            if (robotPathPolylines[msg.agent_id]) {
-                parentInstance.getRenderer().remove(robotPathPolylines[msg.agent_id].robotPolyLine);
-                delete robotPathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPathPolylines reactively
-            }
-            if (robotPathClearTimeouts[msg.agent_id]) {
-                clearTimeout(robotPathClearTimeouts[msg.agent_id]);
-                delete robotPathClearTimeouts[msg.agent_id];
-            }
-            const robotPolyLinePoints = msg.geoposes.map((geopose) => {
-                const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
-                return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
-            });
-            const hexColor = agentInfo[msg.agent_id].hexColor;
-            if (robotPolyLinePoints.length) {
-                robotPathPolylines[msg.agent_id] = { robotPolyLine: parentInstance.getRenderer().addPolyline(robotPolyLinePoints, hexColor), robotPolyLinePoints };
-            }
-            robotPathClearTimeouts[msg.agent_id] = setTimeout(() => {
-                if (!parentInstance) {
-                    return;
-                }
-                if (!robotPathPolylines[msg.agent_id]) {
-                    return;
-                }
-                parentInstance.getRenderer().remove(robotPathPolylines[msg.agent_id].robotPolyLine);
-                delete robotPathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using robotPathPolylines reactively
-            }, 2000);
+            robotPathVisualizer.handleRobotPathEvent({ msg, agentInfo, rootParentInstance: parentInstance });
         }
 
         if ('reservation_status_changed' in events) {
@@ -414,14 +373,6 @@
         // END dtvis demo
     }
 
-    const throttledShowAlert = throttle((floorPose: XRViewerPose) => {
-        if (isIntersectingWithRobotPath(floorPose)) {
-            $isUserOnRobotPath = true;
-        } else {
-            $isUserOnRobotPath = false;
-        }
-    }, 300);
-
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -449,9 +400,7 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        parentInstance.getRenderer().updateReticlePose(reticle,
-                                new Vec3(position.x, position.y, position.z),
-                                new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                        parentInstance.getRenderer().updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                         reticle.visible = true;
                     }
                 } else {
@@ -474,7 +423,7 @@
         }
 
         // Check whether the user is too close to a robot path
-        throttledShowAlert(floorPose);
+        robotPathVisualizer.throttledShowRobotPathIntersectionAlert(floorPose);
         //
         if ($myAgentId && targetWaypoints[$myAgentId]?.geopose?.position?.lat != undefined) {
             const geoPose = getGeoposeFromXRViewerPose(floorPose);
@@ -525,7 +474,7 @@
                 handleSendWaypoint();
             }}
             on:relocalize={() => {
-                robotPathPolylines = {};
+                robotPathVisualizer = new RobotPathVisualizer();
                 targetWaypoints = {};
                 reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
                 parentInstance.relocalize();
