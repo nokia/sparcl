@@ -85,32 +85,41 @@ export function createSeatFromRecord(record: SCR, tdEngine: ogl, localObjectPose
     let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
         return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
     }); // -1 if not found
-    if (chair_id_index != undefined && chair_id_index >= 0) {
-        let chair_id = record.content.definitions?.[chair_id_index].value;
 
-        if (chair_id) {
-            if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
-                tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-            } else {
-                chairs[chair_id] = {
-                    id: chair_id,
-                    reserved: false,
-                    userid: null,
-                };
-
-                tdEngine.addDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
-                tdEngine.addClickEvent(tdEngine.getDynamicObjectMesh(chair_id)!, () => onClickInAr(tdEngine, chair_id, dispatch));
-
-                // create label
-                let textLabelMesh = tdEngine.addTextObject(localObjectPose.position, localObjectPose.quaternion, "-");
-                textLabelMesh.then((mesh) => {
-                    tdEngine.setTowardsCameraRotating(mesh);
-                    mesh.scale.set(new Vec3(0.3, 0.3, 0.3));
-                    seat_labels[chair_id] = mesh;
-                });
-            }
-        }
+    if (chair_id_index == undefined || chair_id_index < 0) {
+        console.log("WARNING: chair_id not found in the message");
+        return;
     }
+
+    let chair_id = record.content.definitions?.[chair_id_index].value;
+    if (chair_id === undefined) {
+        console.log("WARNING: chair_id is undefined in the message");
+        return;
+    }
+
+    if (tdEngine.getDynamicObjectMesh(chair_id) != null) {
+        // chair already exists, update it
+        tdEngine.updateDynamicObject(chair_id, localObjectPose.position, localObjectPose.quaternion, null);
+        return;
+    }
+
+    // does not exist yet, create it
+    chairs[chair_id] = {
+        id: chair_id!,
+        reserved: false,
+        userid: null,
+    };
+
+    tdEngine.addDynamicObject(chair_id!, localObjectPose.position, localObjectPose.quaternion, null);
+    tdEngine.addClickEvent(tdEngine.getDynamicObjectMesh(chair_id)!, () => onClickInAr(tdEngine, chair_id!, dispatch));
+
+    // create label
+    let textLabelMesh = tdEngine.addTextObject(localObjectPose.position, localObjectPose.quaternion, "-");
+    textLabelMesh.then((mesh) => {
+        tdEngine.setTowardsCameraRotating(mesh);
+        mesh.scale.set(new Vec3(0.3, 0.3, 0.3));
+        seat_labels[chair_id!] = mesh;
+    });
 }
 
 export function updateSeatReservation(msg: any, tdEngine: ogl) {
