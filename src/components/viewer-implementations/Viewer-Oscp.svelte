@@ -28,6 +28,7 @@
     import { createEventDispatcher, onMount } from 'svelte';
     import type { Geopose } from '@oarc/scd-access';
     import { RobotPathVisualizer } from '../../features/robot-path-visualizer';
+    import { HumanPathVisualizer } from '../../features/human-path-visualizer';
     import * as SeatReservationManager from '../../features/seat-reservation-manager';
 
     let parentInstance: Parent;
@@ -42,6 +43,7 @@
     let targetWaypoints: Record<string, { geopose: Geopose; model: Mesh; floorpose: Transform }> = {};
     let selectedAgentIdToSend = 'TEST_ROBOT_ID'; // this is just for testing, should be null
     let robotPathVisualizer = new RobotPathVisualizer();
+    let humanPathVisualizer = new HumanPathVisualizer();
     const dispatcher = createEventDispatcher();
 
     /**
@@ -205,7 +207,11 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (!('agent_geopose_updated' in events) && !('waypoint_set' in events) && !('reservation_status_changed' in events) && !('robot_path' in events)) {
+        if (!('agent_geopose_updated' in events) &&
+            !('waypoint_set' in events) &&
+            !('reservation_status_changed' in events) &&
+            !('robot_path' in events) &&
+            !('human_path' in events) ) {
             console.log('Viewer-Oscp: Unknown event received:');
             console.log(events);
             // pass on to parent
@@ -281,6 +287,11 @@
         if ('robot_path' in events) {
             const msg: { agent_id: string; geoposes: Geopose[] } = events.robot_path;
             robotPathVisualizer.handleRobotPathEvent({ msg, agentInfo, rootParentInstance: parentInstance });
+        }
+
+        if ('human_path' in events) {
+            const msg: { agent_id: string; geoposes: Geopose[] } = events.path;
+            humanPathVisualizer.handleHumanPathEvent({ msg, agentInfo, rootParentInstance: parentInstance });
         }
 
         if ('reservation_status_changed' in events) {
@@ -475,6 +486,7 @@
             }}
             on:relocalize={() => {
                 robotPathVisualizer = new RobotPathVisualizer();
+                humanPathVisualizer = new HumanPathVisualizer();
                 targetWaypoints = {};
                 reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
                 parentInstance.relocalize();
