@@ -48,7 +48,7 @@
     import type webxr from '../core/engines/webxr';
     import type ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
-    import * as SeatReservationManager from '@src/components/viewer-implementations/SeatReservationManager';
+    import * as SeatReservationManager from '@src/features/seat-reservation-manager';
     import * as RobotAgentManager from '@components/viewer-implementations/RobotAgentManager';
 
     // Used to dispatch events to parent

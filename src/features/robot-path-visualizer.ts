@@ -1,7 +1,7 @@
 import type { Geopose } from '@oarc/scd-access';
 import Viewer from '../components/Viewer.svelte';
 import { type Mesh, Vec3 } from 'ogl';
-import { distanceToLineSegment } from './common';
+import { distanceToLineSegment } from '../core/common';
 import { throttle } from 'lodash';
 import { isUserOnRobotPath } from '../stateStore';
 

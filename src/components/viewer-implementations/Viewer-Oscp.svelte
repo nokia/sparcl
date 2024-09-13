@@ -27,8 +27,8 @@
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
     import { createEventDispatcher, onMount } from 'svelte';
     import type { Geopose } from '@oarc/scd-access';
-    import { RobotPathVisualizer } from '../../core/robot-path-visualizer';
-    import * as SeatReservationManager from '@src/components/viewer-implementations/SeatReservationManager';
+    import { RobotPathVisualizer } from '../../features/robot-path-visualizer';
+    import * as SeatReservationManager from '../../features/seat-reservation-manager';
 
     let parentInstance: Parent;
 
