@@ -27,9 +27,10 @@
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
     import { createEventDispatcher, onMount } from 'svelte';
     import type { Geopose } from '@oarc/scd-access';
-    import { RobotPathVisualizer } from '../../features/robot-path-visualizer';
-    import { HumanPathVisualizer } from '../../features/human-path-visualizer';
-    import * as SeatReservationManager from '../../features/seat-reservation-manager';
+
+    import { RobotPathVisualizer } from '@src/features/robot-path-visualizer';
+    import { HumanPathVisualizer } from '@src/features/human-path-visualizer';
+    import * as SeatReservationManager from '@src/features/seat-reservation-manager';
 
     let parentInstance: Parent;
 
