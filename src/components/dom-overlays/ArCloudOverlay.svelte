@@ -9,7 +9,7 @@
 
 <!-- DOM-overlay on top of AR canvas AR mode is OSCP -->
 <script lang="ts">
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onMount } from 'svelte';
     import { isLocalizingMessage, isLocalizedMessage, localizeMessage, localizeLabel, movePhoneMessage, resetLabel } from '@src/contentStore';
     import { isUserOnRobotPath, userOnRobotPathBlinkingAlert } from '@src/stateStore';
     import Select from './Select.svelte';
@@ -38,12 +38,31 @@
         state0: '',
     };
     $: dispatch('agentSelected', agentSelected);
+
+    function handleDropdownSelection(event: Event) {
+        const target = event.target as HTMLSelectElement;
+        localStorage.setItem('selectedPoI', target.value);
+        console.log('Selected option:', target.value);
+        // Add here the request building and sending to the routing server
+    }
+
+    onMount(() => {
+        const dropdownMenu = document.getElementById('dropdown-menu') as HTMLSelectElement;
+        dropdownMenu.addEventListener('change', handleDropdownSelection);
+    });
 </script>
 
 {#if $isUserOnRobotPath}
     <p style={blinkingAlertStates[$userOnRobotPathBlinkingAlert] ?? ''}>DANGER! You are intersecting with a robot's path!</p>
 {/if}
 
+<div id="dropdown-container">
+    <select id="dropdown-menu">
+        <option value="P11-A1m10">A1m10</option>
+        <option value="P4-A1M04">MomBabyRoom</option>
+        <option value="P7_Building_B">ExitToBBuilding</option>
+    </select>
+</div>
 {#if !hasPose}
     <p>{$movePhoneMessage}</p>
 {:else if isLocalizing}

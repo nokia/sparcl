@@ -58,6 +58,18 @@ export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
 });
 
 /**
+ * selectedPoI in the locateStorage
+ * @type: {string}
+ * */
+
+const storedSelectedPoI = localStorage.getItem('selectedPoI') || 'P11-A1M10'; // Default to 'option1' if not set
+export const selectedPoI = writable(storedSelectedPoI);
+// Subscribe to the store to update localStorage whenever the value changes
+selectedPoI.subscribe((value) => {
+    localStorage.setItem('selectedPoI', value);
+});
+
+/**
  * Reads and stores the setting whether or not to display the dashboard persistently.
  *
  * @type {boolean}  true when dashboard should be shown, false otherwise

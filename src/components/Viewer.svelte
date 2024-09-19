@@ -631,7 +631,12 @@
 
                         // Nokia seat reservation demo
                         if (record.tenant == "oscptestgs") { // TODO: these should come from a specific SCD topic
-                            SeatReservationManager.createSeatFromRecord(record, tdEngine, localObjectPose, dispatch);
+                            // mock=true is only used in the fakeLocationResult of Developer mode to avoid RabbitMQ
+                            if(content_definitions['mock']==='true'){
+                                SeatReservationManager.createSeatFromRecord(record, tdEngine, localObjectPose, SeatReservationManager.fakeDispatch(tdEngine));
+                            }else{
+                                SeatReservationManager.createSeatFromRecord(record, tdEngine, localObjectPose, dispatch);
+                            }
                         }
 /*
                         if (tdEngine.getDynamicObjectMesh(record.content.id) != null) {
