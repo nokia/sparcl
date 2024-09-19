@@ -14,7 +14,7 @@ export default defineConfig({
     plugins: [
         svelte(),
         glsl(),
-        //basicSsl(),
+        basicSsl(),
         typescript(),
         wasm(),
     ],

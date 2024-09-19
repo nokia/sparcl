@@ -85,6 +85,9 @@
     function handleContentServiceTopicSelection(service: Service, topic: string) {
         $selectedContentServices[service.id].selectedTopic = topic;
     }
+
+
+
 </script>
 
 <button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
@@ -374,6 +377,18 @@
 
     legend h4 {
         margin-bottom: 0;
+    }
+
+    #dropdown-container {
+        position: absolute;
+    /*    top: 10px;
+        left: 10px;
+        z-index: 1000; /* Ensure it is on top of WebXR content */
+    }
+
+    #dropdown-menu {
+        font-size: 16px;
+        padding: 5px;
     }
 
     #go-immersive-button {
