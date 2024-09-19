@@ -51,13 +51,19 @@ export function getUserName(userId: string) {
     return users[userId];
 }
 
-function onClickInAr(tdEngine:ogl, chair_id:string, dispatch: EventDispatcher<{
-    broadcast: {
-        event: string;
-        value?: any;
-        routing_key?: string;
-    };
-}>) {
+export interface ReservationMessage {
+    chair_id: string,
+    reserved: boolean,
+    userid: number,
+};
+
+export interface ReservationBroadcast {
+    event: string;
+    value?: ReservationMessage;
+    routing_key?: string;
+}
+
+function onClickInAr(tdEngine:ogl, chair_id:string, dispatch: EventDispatcher<{broadcast:ReservationBroadcast}>) {
     console.log("RESERVATION CLICK: " + chair_id);
     tdEngine.getDynamicObjectMesh(chair_id)!.scale = new Vec3(1.1, 1.1, 1.1);
     // send request
@@ -73,15 +79,16 @@ function onClickInAr(tdEngine:ogl, chair_id:string, dispatch: EventDispatcher<{
     });
 }
 
-
-
-export function createSeatFromRecord(record: SCR, tdEngine: ogl, localObjectPose: Transform, dispatch: EventDispatcher<{
-    broadcast: {
-        event: string;
-        value?: any;
-        routing_key?: string;
+export function fakeDispatch(tdEngine:ogl){
+    return (_type:string, parameter:ReservationBroadcast) => {
+        console.log("fakeDispatch");
+        updateSeatReservation(parameter.value!, tdEngine);
+        return true;
     };
-}>) {
+}
+
+
+export function createSeatFromRecord(record: SCR, tdEngine: ogl, localObjectPose: Transform, dispatch: EventDispatcher<{broadcast:ReservationBroadcast}>) {
     let chair_id_index = record.content.definitions?.findIndex(function (key_value_pair) {
         return key_value_pair.type === 'chair_id'; // WARNING: a 'key' is called 'type' in the SCR definitions
     }); // -1 if not found
@@ -122,7 +129,7 @@ export function createSeatFromRecord(record: SCR, tdEngine: ogl, localObjectPose
     });
 }
 
-export function updateSeatReservation(msg: any, tdEngine: ogl) {
+export function updateSeatReservation(msg: ReservationMessage, tdEngine: ogl) {
     console.log("Reservation status event received");
     console.log(msg);
     const chair_id = msg.chair_id;
