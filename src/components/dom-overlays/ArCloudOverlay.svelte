@@ -43,7 +43,7 @@
         const target = event.target as HTMLSelectElement;
         localStorage.setItem('selectedPoI', target.value);
         console.log('Selected option:', target.value);
-        // Add here the request building and sending to the routing server
+        dispatch('requestHumanPath', {targetPointOfInterestId: target.value})
     }
 
     onMount(() => {
@@ -58,9 +58,9 @@
 
 <div id="dropdown-container">
     <select id="dropdown-menu">
-        <option value="P11-A1m10">A1m10</option>
-        <option value="P4-A1M04">MomBabyRoom</option>
-        <option value="P7_Building_B">ExitToBBuilding</option>
+        <option value="P11">A1m10</option>
+        <option value="P4">MomBabyRoom</option>
+        <option value="P7">ExitToBBuilding</option>
     </select>
 </div>
 {#if !hasPose}

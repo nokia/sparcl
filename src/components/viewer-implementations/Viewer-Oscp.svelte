@@ -523,8 +523,8 @@
             on:sendWaypoint={() => {
                 handleSendWaypoint();
             }}
-            on:requestHumanPath={() => {
-                handleRequestHumanPath();
+            on:requestHumanPath={(event) => {
+                handleRequestHumanPath(event.detail.targetPointOfInterestId);
             }}
             on:relocalize={() => {
                 robotPathVisualizer = new RobotPathVisualizer();
