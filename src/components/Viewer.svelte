@@ -394,14 +394,14 @@
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addSensor(new Sensor("gps", SENSORTYPE.geolocation))
                 .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0,
-                    new Date().getTime(), "gps", new Privacy());
+                    Date.now(), "gps", new Privacy());
 
-            console.log(JSON.stringify(geoPoseRequest))
+            console.log(JSON.stringify(geoPoseRequest));
 
             geoPoseRequest
                 .addSensor(new Sensor("cam", SENSORTYPE.camera))
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams,
-                    new Date().getTime(), "cam", new Privacy())
+                    Date.now(), "cam", new Privacy())
 
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);

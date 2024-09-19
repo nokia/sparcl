@@ -151,7 +151,7 @@
             geopose: globalTargetPose,
             active: true,
             sender: $myAgentId, // can the sender be different from the creator of the command? in some cases maybe yes.
-            timestamp: Date.now(), //new Date().getTime(), // TODO: use the timestamp from the message,
+            timestamp: Date.now(), // TODO: use the timestamp from the message,
             creator_id: $myAgentId,
             agent_id: selectedAgentIdToSend, // we send the command to this robot
         };
