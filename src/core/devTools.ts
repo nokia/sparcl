@@ -11,6 +11,8 @@ import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
 import { Buffer } from 'buffer';
+import type { GeoPoseResponse } from '@oarc/gpp-access';
+import type { SCR } from '@oarc/scd-access';
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
@@ -462,6 +464,116 @@ export const fakeLocationResult = {
             id: '25532',
             tenant: 'AC',
             timestamp: 1619696982834,
+            type: 'scr',
+        },
+    ],
+};
+
+export const fakeLocationResult2:({geopose:GeoPoseResponse,scrs:SCR[]}) = {
+    geopose: {
+        accuracy: {
+            orientation: -1,
+            position: -1,
+        },
+        id: '1adc076d-5a33-4f06-aacb-e8c2e94499b9',
+        geopose: {
+            position: {
+                lat: 48.756115957414345,
+                lon: 8.545640947400223,
+                h: 0.06582733851264133,
+            },
+            quaternion: {
+                x: 0,
+                y: 0,
+                z: 0.707,
+                w: 0.707
+            },
+        },
+        timestamp: 1726751196000,
+        type: 'geopose',
+    },
+    scrs: [
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.75751158077768,
+                        lon: 8.545000426348882,
+                        h: 0
+                    },
+                    quaternion: {
+                        x: 0,
+                        y: 0,
+                        z: 0,
+                        w: 1,
+                    },
+                },
+                id: '25519',
+                keywords: ['text'],
+                refs: [{url:"/media/fonts/MgOpenLicence.txt",contentType:""}],
+                title: 'Long sample text',
+                type: 'TEXT',
+            },
+            id: '25519',
+            tenant: 'public',
+            timestamp: 1726751196000,
+            type: 'scr',
+        },
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.756132830613595,
+                        lon: 8.545662319589079,
+                        h: -0.4542122185230255,
+                    },
+                    quaternion: {
+                        x: 0,
+                        y: 0,
+                        z: 1,
+                        w: 0,
+                    },
+                },
+                id: '25523',
+                keywords: ['other'],
+                refs: [{url:'/media/models/Duck.glb',contentType:'gltf'}],
+                title: 'Duck',
+                type: 'MODEL_3D',
+            },
+            id: '25523',
+            tenant: 'public',
+            timestamp: 1726751196000,
+            type: 'scr',
+        },
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.7561344514246,
+                        lon: 8.545641127889324,
+                        h: 0
+                    },
+                    quaternion: {
+                        x: 0.030575819204840073,
+                        y: -0.8192063719687788,
+                        z: -0.04386668473200756,
+                        w: -0.5710006596986791,
+                    },
+                },
+                
+                id: '25532',
+                keywords: ['other'],
+                refs: [],
+                title: 'Picker',
+                type: 'sensor_stream',
+                definitions:[{type:"chair_id", value:"1"},{type:"mock",value:"true"}]
+            },
+            id: '25532',
+            tenant: 'public',
+            timestamp: 1726751196000,
             type: 'scr',
         },
     ],
