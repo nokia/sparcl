@@ -1,5 +1,5 @@
 import { get } from 'svelte/store';
-import { myAgentId } from '@src/stateStore';
+import { myAgentId, myAgentName } from '@src/stateStore';
 import throttle from 'lodash/throttle';
 import stomp, { type Client, type Frame } from 'stompjs';
 
@@ -7,7 +7,7 @@ const rmq_topic_geopose_update = '/exchange/esoptron/geopose_update.#';
 const rmq_topic_object_created = '/exchange/esoptron/object_created';
 const rmq_topic_waypoint = '/exchange/esoptron/waypoint';
 const rmq_topic_robot_path = '/exchange/esoptron/robot_path';
-const rmq_topic_human_path = '/exchange/esoptron/human_path';
+const rmq_topic_human_path = '/exchange/esoptron/human_path'; // for requests
 const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
 
 let rmqClient: Client | null = null;
@@ -136,19 +136,22 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
             updateFunction(data);
         });
 
-        console.log('Subscribing to topic ' + rmq_topic_human_path);
-        rmqClient?.subscribe(rmq_topic_human_path, function (d) {
+        const rmq_topic_my_human_path = rmq_topic_human_path + "." + get(myAgentName); // for now, the reply topic is a subtopic of the request topic
+        console.log('Subscribing to topic ' + rmq_topic_my_human_path);
+        rmqClient?.subscribe(rmq_topic_my_human_path, function (d) {
+            console.log("RECEIVED HUMAN PATH MESSAGE:");
+            console.log(d.body);
             const msg = JSON.parse(d.body);
             const path_geoposes = msg.path_geoposes || null;
             const agent_id = msg.agent_id || 'unknown'; // target agent
-            const timestamp = msg.timestamp || 0;
-            const color = msg.color || [1.0, 1.0, 0.0];
+            const timestamp = msg.timestamp || 0; // TODO: discuss, do we need this or not?
+            const correlation_id = msg.correlation_id || 0; // TODO: discuss, do we need this or not?
             const data = {
-                robot_path: {
+                human_path: {
                     agent_id: agent_id,
                     geoposes: path_geoposes,
-                    color: color,
-                    timestamp: timestamp,
+                    correlation_id: correlation_id, // TODO: discuss, do we need this or not?
+                    timestamp: timestamp, // TODO: discuss, do we need this or not?
                 },
             };
             updateFunction(data);
@@ -182,7 +185,7 @@ export const rmqDisconnect = () => {
     rmqClient?.disconnect(() => {});
 };
 
-export function send(routing_key: string, data: any) {
+export function send(routing_key: string, headers: Record<string, any>, data: any) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
-    rmqClient?.send(routing_key, {}, JSON.stringify(data));
+    rmqClient?.send(routing_key, headers, JSON.stringify(data));
 }

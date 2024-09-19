@@ -286,6 +286,7 @@
             event: string;
             value?: Record<string, any> | undefined;
             routing_key?: string | undefined;
+            headers?: Record<string, any> | undefined;
         }>,
     ) {
         if (p2p != null) {
@@ -293,7 +294,7 @@
         }
 
         if (event.detail.routing_key != undefined && event.detail.value) {
-            rmq.send(event.detail.routing_key, event.detail.value);
+            rmq.send(event.detail.routing_key, event.detail.headers || {}, event.detail.value);
         }
     }
 

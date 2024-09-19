@@ -11,11 +11,9 @@ export class HumanPathVisualizer {
 
     handleHumanPathEvent({
         msg,
-        agentInfo,
         rootParentInstance,
     }: {
         msg: { agent_id: string; geoposes: Geopose[] };
-        agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }>;
         rootParentInstance: Viewer;
     }) {
         if (this.pathPolylines[msg.agent_id]) {
@@ -30,7 +28,7 @@ export class HumanPathVisualizer {
             const localTargetPose = rootParentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
             return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
         });
-        const hexColor = agentInfo[msg.agent_id].hexColor;
+        const hexColor = "0xD8F9FF"; // light blue
         if (polyLinePoints.length) {
             this.pathPolylines[msg.agent_id] = { polyLine: rootParentInstance.getRenderer().addPolyline(polyLinePoints, hexColor), polyLinePoints };
         }
@@ -44,5 +42,19 @@ export class HumanPathVisualizer {
             rootParentInstance.getRenderer().remove(this.pathPolylines[msg.agent_id].polyLine);
             delete this.pathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using pathPolylines reactively
         }, 2000);
+    }
+
+    private targetPointOfInterestId: string|undefined = undefined;
+
+    requestPathTo(targetPointOfInterestId: string|undefined) { // undefined means clearing
+        this.targetPointOfInterestId = targetPointOfInterestId
+    }
+
+    hasPendingRequest() {
+        return this.targetPointOfInterestId != undefined;
+    }
+
+    getPendingRequest() {
+        return this.targetPointOfInterestId;
     }
 }

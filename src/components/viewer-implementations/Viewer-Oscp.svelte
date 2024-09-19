@@ -13,7 +13,6 @@
 
 <script lang="ts">
     import { get } from 'svelte/store';
-    import throttle from 'lodash/throttle';
     import { Quat, Vec3, Transform, Mesh, type OGLRenderingContext } from 'ogl';
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
@@ -291,8 +290,8 @@
         }
 
         if ('human_path' in events) {
-            const msg: { agent_id: string; geoposes: Geopose[] } = events.path;
-            humanPathVisualizer.handleHumanPathEvent({ msg, agentInfo, rootParentInstance: parentInstance });
+            const msg: { agent_id: string; geoposes: Geopose[] } = events.human_path; // extract only what we use
+            humanPathVisualizer.handleHumanPathEvent({ msg, rootParentInstance: parentInstance });
         }
 
         if ('reservation_status_changed' in events) {
@@ -385,6 +384,41 @@
         // END dtvis demo
     }
 
+    function handleRequestHumanPath(targetPointOfInterestId: string) {
+        console.log("handleRequestHumanPath " + targetPointOfInterestId)
+        humanPathVisualizer.requestPathTo(targetPointOfInterestId);
+    }
+
+    function sendRequestHumanPath(localPose: XRViewerPose, targetPointOfInterestId: string) {
+        console.log("sendRequestHumanPath " + targetPointOfInterestId)
+        if (!selectedAgentIdToSend) {
+            return;
+        }
+        if ($recentLocalisation.geopose?.position === undefined || $recentLocalisation.floorpose?.transform?.position === undefined) {
+            console.log('UI for human path request tapped but the recent localization result is empty :(');
+            return;
+        }
+        const myGeoPose = getGeoposeFromXRViewerPose(localPose);
+        const message_body = {
+            reply_to: "/exchange/esoptron/human_path." + String(get(myAgentName)), // TODO: remove, or use myAgentId but then read it on the server
+            correlation_id: Date.now(), // TODO: remove
+            agent_id: String($myAgentId), // we send the command to this robot
+            point: [myGeoPose.position.lat, myGeoPose.position.lon],
+            target: targetPointOfInterestId,
+            geopose: myGeoPose,
+            timestamp: Date.now()
+        };
+        dispatcher('broadcast', {
+            event: 'request_human_path',
+            value: message_body,
+            routing_key: '/exchange/esoptron/human_path', // routing_key of all requests
+            headers: {
+                reply_to: "/exchange/esoptron/human_path." + String(get(myAgentName)), // routing key of replies for me
+                correlation_id: Date.now(),
+            }
+        });
+    }
+
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -429,6 +463,10 @@
         if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
             try {
                 shareCameraPose(floorPose);
+                if (humanPathVisualizer.hasPendingRequest()) {
+                    sendRequestHumanPath(floorPose, humanPathVisualizer.getPendingRequest())
+                    humanPathVisualizer.requestPathTo(undefined); // remove the request
+                }
             } catch (error) {
                 // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
             }
@@ -484,6 +522,9 @@
             }}
             on:sendWaypoint={() => {
                 handleSendWaypoint();
+            }}
+            on:requestHumanPath={() => {
+                handleRequestHumanPath();
             }}
             on:relocalize={() => {
                 robotPathVisualizer = new RobotPathVisualizer();
