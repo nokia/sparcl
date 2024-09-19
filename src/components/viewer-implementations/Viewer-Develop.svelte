@@ -13,7 +13,7 @@
 <script lang="ts">
     import Parent from '@components/Viewer.svelte';
 
-    import { fakeLocationResult } from '@core/devTools';
+    import { fakeLocationResult2 } from '@core/devTools';
     import { wait } from '@core/common';
     import { debug_showLocalAxes } from '@src/stateStore';
     import type webxr from '../../core/engines/webxr';
@@ -87,13 +87,13 @@
 
             for (let view of floorPose.views) {
                 console.log('fake localisation');
-                const geoPose = fakeLocationResult.geopose.pose;
+                const geoPose = fakeLocationResult2.geopose.geopose;
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
 
                 wait(1000).then(() => (showFooter = false));
 
-                let data = fakeLocationResult.scrs;
+                let data = fakeLocationResult2.scrs;
                 parentInstance.placeContent([data]);
             }
         }
