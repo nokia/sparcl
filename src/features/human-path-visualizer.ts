@@ -32,6 +32,7 @@ export class HumanPathVisualizer {
         if (polyLinePoints.length) {
             this.pathPolylines[msg.agent_id] = { polyLine: rootParentInstance.getRenderer().addPolyline(polyLinePoints, hexColor), polyLinePoints };
         }
+
         this.pathClearTimeouts[msg.agent_id] = setTimeout(() => {
             if (!rootParentInstance) {
                 return;
@@ -41,7 +42,7 @@ export class HumanPathVisualizer {
             }
             rootParentInstance.getRenderer().remove(this.pathPolylines[msg.agent_id].polyLine);
             delete this.pathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using pathPolylines reactively
-        }, 2000);
+        }, 10000); // TODO: lower timeout and repeat requests
     }
 
     private targetPointOfInterestId: string|undefined = undefined;

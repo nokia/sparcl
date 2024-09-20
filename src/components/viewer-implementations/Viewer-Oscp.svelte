@@ -400,7 +400,8 @@
         }
         const myGeoPose = getGeoposeFromXRViewerPose(localPose);
         const message_body = {
-            reply_to: "/exchange/esoptron/human_path." + String(get(myAgentName)), // TODO: remove, or use myAgentId but then read it on the server
+            reply_exchange: "esoptron",
+            reply_routing_key: "human_path" + "." + String(get(myAgentId)), // TODO: remove, or use myAgentId but then read it on the server
             correlation_id: Date.now(), // TODO: remove
             agent_id: String($myAgentId), // we send the command to this robot
             point: [myGeoPose.position.lat, myGeoPose.position.lon],
@@ -413,7 +414,7 @@
             value: message_body,
             routing_key: '/exchange/esoptron/human_path', // routing_key of all requests
             headers: {
-                reply_to: "/exchange/esoptron/human_path." + String(get(myAgentName)), // routing key of replies for me
+                reply_to: "/exchange/esoptron/human_path." + String(get(myAgentId)), // routing key of replies for me
                 correlation_id: Date.now(),
             }
         });

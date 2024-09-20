@@ -136,7 +136,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
             updateFunction(data);
         });
 
-        const rmq_topic_my_human_path = rmq_topic_human_path + "." + get(myAgentName); // for now, the reply topic is a subtopic of the request topic
+        const rmq_topic_my_human_path = rmq_topic_human_path + "." + String(get(myAgentId)); // for now, the reply topic is a subtopic of the request topic
         console.log('Subscribing to topic ' + rmq_topic_my_human_path);
         rmqClient?.subscribe(rmq_topic_my_human_path, function (d) {
             console.log("RECEIVED HUMAN PATH MESSAGE:");
