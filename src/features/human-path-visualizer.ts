@@ -31,12 +31,13 @@ export class HumanPathVisualizer {
         let totalGeoPoses = msg.geoposes;
 
         if(get(recentLocalisation)?.geopose){
+            console.log(get(recentLocalisation).geopose);
             totalGeoPoses = [get(recentLocalisation).geopose as GeoPose].concat(totalGeoPoses);
         }
 
         let polyLinePoints = totalGeoPoses.map((geopose) => {
             const localTargetPose = rootParentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
-            return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
+            return new Vec3(localTargetPose.position.x, 0, localTargetPose.position.z);
         });
 
         const hexColor = "0xD8F9FF"; // light blue
