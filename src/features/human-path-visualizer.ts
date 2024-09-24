@@ -6,6 +6,17 @@ import { isUserOnRobotPath, recentLocalisation } from '../stateStore';
 import { get } from 'svelte/store';
 import type { GeoPose } from '@oarc/gpp-access';
 
+// TODO: move this to some general place
+let humanPathCurrentPose: GeoPose|null = null;
+
+export function setCurrentPose(pose: GeoPose){
+    humanPathCurrentPose = pose;
+}
+
+export function getCurrentPose(){
+    return humanPathCurrentPose;
+}
+
 export class HumanPathVisualizer {
     constructor() {}
     public pathPolylines: Record<string, { polyLine: Mesh; polyLinePoints: Vec3[] }> = {};
@@ -29,10 +40,8 @@ export class HumanPathVisualizer {
         }
 
         let totalGeoPoses = msg.geoposes;
-
-        if(get(recentLocalisation)?.geopose){
-            console.log(get(recentLocalisation).geopose);
-            totalGeoPoses = [get(recentLocalisation).geopose as GeoPose].concat(totalGeoPoses);
+        if(humanPathCurrentPose && rootParentInstance){
+            totalGeoPoses = [humanPathCurrentPose as GeoPose].concat(totalGeoPoses);
         }
 
         let polyLinePoints = totalGeoPoses.map((geopose) => {
@@ -40,7 +49,7 @@ export class HumanPathVisualizer {
             return new Vec3(localTargetPose.position.x, 0, localTargetPose.position.z);
         });
 
-        const hexColor = "0xD8F9FF"; // light blue
+        const hexColor = "#D8F9FF"; // light blue
         if (polyLinePoints.length) {
             this.pathPolylines[msg.agent_id] = { polyLine: rootParentInstance.getRenderer().addPolyline(polyLinePoints, hexColor), polyLinePoints };
         }
