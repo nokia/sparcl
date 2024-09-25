@@ -28,8 +28,9 @@
     import type { Geopose } from '@oarc/scd-access';
 
     import { RobotPathVisualizer } from '@src/features/robot-path-visualizer';
-    import { HumanPathVisualizer } from '@src/features/human-path-visualizer';
+    import { getCurrentPose, HumanPathVisualizer, setCurrentPose } from '@src/features/human-path-visualizer';
     import * as SeatReservationManager from '@src/features/seat-reservation-manager';
+    import type { GeoPose } from '@oarc/gpp-access';
 
     let parentInstance: Parent;
 
@@ -384,12 +385,22 @@
         // END dtvis demo
     }
 
+    let humanPathInterval:NodeJS.Timer|null=null;
+
     function handleRequestHumanPath(targetPointOfInterestId: string) {
         console.log("handleRequestHumanPath " + targetPointOfInterestId)
-        humanPathVisualizer.requestPathTo(targetPointOfInterestId);
+        if(humanPathInterval){
+            clearInterval(humanPathInterval);
+            humanPathInterval=null;
+        }
+        const repeatRequest = ()=>{
+            console.log("sending repeated request");
+            humanPathVisualizer.requestPathTo(targetPointOfInterestId);
+        };
+        humanPathInterval = setInterval(repeatRequest, 2000);
     }
 
-    function sendRequestHumanPath(localPose: XRViewerPose, targetPointOfInterestId: string) {
+    function sendRequestHumanPath(geoPose: GeoPose, targetPointOfInterestId: string) {
         console.log("sendRequestHumanPath " + targetPointOfInterestId)
         if (!selectedAgentIdToSend) {
             return;
@@ -398,15 +409,14 @@
             console.log('UI for human path request tapped but the recent localization result is empty :(');
             return;
         }
-        const myGeoPose = getGeoposeFromXRViewerPose(localPose);
         const message_body = {
             reply_exchange: "esoptron",
             reply_routing_key: "human_path" + "." + String(get(myAgentId)), // TODO: remove, or use myAgentId but then read it on the server
             correlation_id: Date.now(), // TODO: remove
             agent_id: String($myAgentId), // we send the command to this robot
-            point: [myGeoPose.position.lat, myGeoPose.position.lon],
+            point: [geoPose.position.lat, geoPose.position.lon],
             target: targetPointOfInterestId,
-            geopose: myGeoPose,
+            geopose: geoPose,
             timestamp: Date.now()
         };
         dispatcher('broadcast', {
@@ -464,8 +474,9 @@
         if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
             try {
                 shareCameraPose(floorPose);
+                setCurrentPose(getGeoposeFromXRViewerPose(floorPose));
                 if (humanPathVisualizer.hasPendingRequest()) {
-                    sendRequestHumanPath(floorPose, humanPathVisualizer.getPendingRequest())
+                    sendRequestHumanPath(getCurrentPose()!, humanPathVisualizer.getPendingRequest()!);
                     humanPathVisualizer.requestPathTo(undefined); // remove the request
                 }
             } catch (error) {
