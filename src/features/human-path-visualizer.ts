@@ -2,7 +2,20 @@ import type { Geopose } from '@oarc/scd-access';
 import Viewer from '../components/Viewer.svelte';
 import { type Mesh, Vec3 } from 'ogl';
 import { throttle } from 'lodash';
-import { isUserOnRobotPath } from '../stateStore';
+import { isUserOnRobotPath, recentLocalisation } from '../stateStore';
+import { get } from 'svelte/store';
+import type { GeoPose } from '@oarc/gpp-access';
+
+// TODO: move this to some general place
+let humanPathCurrentPose: GeoPose|null = null;
+
+export function setCurrentPose(pose: GeoPose){
+    humanPathCurrentPose = pose;
+}
+
+export function getCurrentPose(){
+    return humanPathCurrentPose;
+}
 
 export class HumanPathVisualizer {
     constructor() {}
@@ -16,6 +29,7 @@ export class HumanPathVisualizer {
         msg: { agent_id: string; geoposes: Geopose[] };
         rootParentInstance: Viewer;
     }) {
+        console.log(msg.geoposes);
         if (this.pathPolylines[msg.agent_id]) {
             rootParentInstance.getRenderer().remove(this.pathPolylines[msg.agent_id].polyLine);
             delete this.pathPolylines[msg.agent_id]; // delete is not reactive in svelte, but we don't care because we are not using pathPolylines reactively
@@ -24,11 +38,18 @@ export class HumanPathVisualizer {
             clearTimeout(this.pathClearTimeouts[msg.agent_id]);
             delete this.pathClearTimeouts[msg.agent_id];
         }
-        const polyLinePoints = msg.geoposes.map((geopose) => {
+
+        let totalGeoPoses = msg.geoposes;
+        if(humanPathCurrentPose && rootParentInstance){
+            totalGeoPoses = [humanPathCurrentPose as GeoPose].concat(totalGeoPoses);
+        }
+
+        let polyLinePoints = totalGeoPoses.map((geopose) => {
             const localTargetPose = rootParentInstance.getRenderer().convertGeoPoseToLocalPose(geopose);
-            return new Vec3(localTargetPose.position.x, localTargetPose.position.y, localTargetPose.position.z);
+            return new Vec3(localTargetPose.position.x, 0, localTargetPose.position.z);
         });
-        const hexColor = "0xD8F9FF"; // light blue
+
+        const hexColor = "#D8F9FF"; // light blue
         if (polyLinePoints.length) {
             this.pathPolylines[msg.agent_id] = { polyLine: rootParentInstance.getRenderer().addPolyline(polyLinePoints, hexColor), polyLinePoints };
         }
