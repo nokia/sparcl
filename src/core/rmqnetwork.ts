@@ -95,6 +95,8 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
 
         console.log('Subscribing to topic ' + rmq_topic_waypoint);
         rmqClient?.subscribe(rmq_topic_waypoint, function (d) {
+            console.log("RECEIVED WAYPOINT MESSAGE:");
+            console.log(d.body);
             const msg = JSON.parse(d.body);
             const waypointGeopose = msg.geopose || null;
             if (waypointGeopose == null) {
@@ -119,7 +121,10 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         console.log('Subscribing to topic ' + rmq_topic_robot_path);
         rmqClient?.subscribe(rmq_topic_robot_path, function (d) {
             const msg = JSON.parse(d.body);
-            const waypointGeoposes = msg.geoposes || null;
+            const path_geoposes = msg.geoposes || null;
+            if (path_geoposes == null) {
+                return;
+            }
             const agent_id = msg.agent_id || 'unknown'; // target agent
             const creator_id = msg.creator_id || 'unknown';
             const timestamp = msg.timestamp || 0;
@@ -128,7 +133,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
                 robot_path: {
                     agent_id: agent_id,
                     creator_id: creator_id,
-                    geoposes: waypointGeoposes,
+                    geoposes: path_geoposes,
                     color: color,
                     timestamp: timestamp,
                 },
