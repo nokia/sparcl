@@ -66,6 +66,7 @@ import { printOglTransform, checkGLError } from '@core/devTools';
 import { quat, vec3 } from 'gl-matrix';
 import type { ObjectDescription, ValueOf } from '../../../types/xr';
 import type { Geopose, SCR } from '@oarc/scd-access';
+import { createParticles, particleList, ParticleShape, updateParticles, type ParticleSystem } from './oglParticleHelper';
 
 let gl: OGLRenderingContext;
 let renderer: Renderer;
@@ -361,6 +362,14 @@ export default class ogl {
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
         return mesh;
+    }
+
+    addParticleObject(position: Vec3, orientation: Quat, id:string, shape:ParticleShape, baseColor:string, pointSize: number, intensity: number){
+        const particles = createParticles(gl, shape, baseColor, pointSize, intensity);
+        particles.mesh.position.copy(position);
+        particles.mesh.quaternion.copy(orientation);
+        particleList[id] = particles;
+        scene.addChild(particles.mesh);
     }
 
     /**
@@ -705,6 +714,9 @@ export default class ogl {
         const relTime = time - lastRenderTime;
         lastRenderTime = time;
         uniforms.time.forEach((model) => (model.program.uniforms.uTime.value = time * 0.001)); // Time in seconds
+        for(let particles of Object.values(particleList)){
+            updateParticles(particles);
+        }
 
         // rotate all user facing labels to face the current camera position
         verticallyRotatingNodes.forEach((node) => {
