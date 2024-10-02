@@ -2,6 +2,7 @@ import { get } from 'svelte/store';
 import { myAgentId, myAgentName } from '@src/stateStore';
 import throttle from 'lodash/throttle';
 import stomp, { type Client, type Frame } from 'stompjs';
+import { updateIntensityFromMsg } from './engines/ogl/oglParticleHelper';
 
 const rmq_topic_geopose_update = '/exchange/esoptron/geopose_update.#';
 const rmq_topic_object_created = '/exchange/esoptron/object_created';
@@ -9,6 +10,7 @@ const rmq_topic_waypoint = '/exchange/esoptron/waypoint';
 const rmq_topic_robot_path = '/exchange/esoptron/robot_path';
 const rmq_topic_human_path = '/exchange/esoptron/human_path'; // for requests
 const rmq_topic_chair_reservation = '/exchange/esoptron/chair_reservation';
+const rmq_topic_sensor_update = '/exchange/esoptron/sensor_update';
 
 let rmqClient: Client | null = null;
 
@@ -176,6 +178,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
             };
             updateFunction(data);
         });
+
     };
 
     const on_error = function (err: Frame | string) {
@@ -185,6 +188,15 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
 
     rmqClient.connect(username, password, on_connect, on_error, '/');
 }
+
+
+export function subscribeToSensor(sensorId: string){
+    rmqClient?.subscribe(rmq_topic_sensor_update+"."+sensorId, function (d) {
+        console.log(d.body);
+        updateIntensityFromMsg(d.body);
+    });
+}
+
 
 export const rmqDisconnect = () => {
     rmqClient?.disconnect(() => {});

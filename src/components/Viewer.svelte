@@ -49,6 +49,8 @@
     import type ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
     import * as SeatReservationManager from '@src/features/seat-reservation-manager';
+    import { particleList, ParticleShape, updateIntensity, updateIntensityFromMsg } from '@src/core/engines/ogl/oglParticleHelper';
+    import { subscribeToSensor } from '@src/core/rmqnetwork';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<
@@ -570,7 +572,7 @@
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
-                                const node = tdEngine.addModel(url, localPosition, localQuaternion);
+                                let node = tdEngine.addModel(url, localPosition, localQuaternion);
                                 if (content_definitions['animation'] != undefined) {
                                     switch (content_definitions['animation']) {
                                         case 'SPIN_UP':
@@ -636,6 +638,34 @@
                                 SeatReservationManager.createSeatFromRecord(record, tdEngine, localObjectPose, SeatReservationManager.fakeDispatch(tdEngine));
                             }else{
                                 SeatReservationManager.createSeatFromRecord(record, tdEngine, localObjectPose, dispatch);
+                            }
+                        }else{
+                            console.log("Adding particle system", localPosition, localQuaternion);
+                            let shape = content_definitions["shape"] ?? 'random';
+                            const sensor_id = content_definitions["sensor_id"];
+                            if(!sensor_id){
+                                console.error("ERROR: Missing sensor_id field in content record!", record.content.id);
+                                break;
+                            }
+                            const baseColor = content_definitions["baseColor"] ?? '0.5,0.5,0.5';
+                            const pointSize = parseFloat(content_definitions["pointSize"] ?? "200.0");
+                            const intensity = parseInt(content_definitions["intensity"]?? "100");
+                            if(!(<any>Object).values(ParticleShape).includes(shape)){
+                                shape = 'random';
+                            }
+                            tdEngine.addParticleObject(localPosition, localQuaternion, sensor_id, shape as ParticleShape, baseColor, pointSize, intensity);
+                            subscribeToSensor(sensor_id);
+
+                            if(content_definitions["createButton"]==="true"){
+                                let sensor_id = content_definitions["sensor_id"];
+                                let object_description = (record.content as any).object_description;
+                                let globalObjectPose = record.content.geopose;
+                                let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                                let object_id = record.content.id+"_button";
+                                const mesh = tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                                tdEngine.addClickEvent(mesh, ()=>{
+                                    updateIntensity(particleList[sensor_id], particleList[sensor_id].intensity*2);
+                                });
                             }
                         }
 /*

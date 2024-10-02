@@ -525,33 +525,6 @@ export const fakeLocationResult2:({geopose:GeoPoseResponse,scrs:SCR[]}) = {
                 description: '',
                 geopose: {
                     position: {
-                        lat: 48.756132830613595,
-                        lon: 8.545662319589079,
-                        h: -0.4542122185230255,
-                    },
-                    quaternion: {
-                        x: 0,
-                        y: 0,
-                        z: 1,
-                        w: 0,
-                    },
-                },
-                id: '25523',
-                keywords: ['other'],
-                refs: [{url:'/media/models/Duck.glb',contentType:'gltf'}],
-                title: 'Duck',
-                type: 'MODEL_3D',
-            },
-            id: '25523',
-            tenant: 'public',
-            timestamp: 1726751196000,
-            type: 'scr',
-        },
-        {
-            content: {
-                description: '',
-                geopose: {
-                    position: {
                         lat: 48.7561344514246,
                         lon: 8.545641127889324,
                         h: 0
@@ -572,8 +545,44 @@ export const fakeLocationResult2:({geopose:GeoPoseResponse,scrs:SCR[]}) = {
                 definitions:[{type:"chair_id", value:"1"},{type:"mock",value:"true"}]
             },
             id: '25532',
-            tenant: 'public',
+            tenant: 'oscptestgs',
             timestamp: 1726751196000,
+            type: 'scr',
+        },
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.756132830613595,
+                        lon: 8.545662319589079,
+                        h: -0.4542122185230255,
+                    },
+                    quaternion: {
+                        x:  0,//-0.11061927770517868,
+                        y:   0,//-0.5654197985215716,
+                        z:  1,//0.07686378041725367,
+                        w:  0,//-0.8137295534142641,
+                    },
+                },
+                id: '25524',
+                keywords: ['place'],
+                refs: [],
+                title: 'first',
+                type: 'sensor_stream',
+                //url: '',
+                definitions: [
+                    { type: 'sensor_id', value: '25524' },
+                    { type: 'shape', value: 'sphere' },
+                    { type: 'baseColor', value: '0.0,0.0,0.4' },
+                    { type: 'pointSize', value: '100' },
+                    { type: 'intensity', value: '50' },
+                    { type: 'createButton', value: 'true' },
+                ], // random, cone, sphere
+            },
+            id: '25524',
+            tenant: 'public',
+            timestamp: 1619696982578,
             type: 'scr',
         },
     ],
