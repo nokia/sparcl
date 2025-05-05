@@ -80,6 +80,7 @@
     "ogl": "1.0.3",
     "peerjs": "^1.3.2",
     "perge": "^1.2.1",
+    "qr-scanner": "^1.4.2",
     "stompjs": "^2.3.3",
     "svelte-awesome-color-picker": "^3.0.4",
     "svelte-check": "^3.6.2",

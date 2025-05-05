@@ -17,7 +17,8 @@
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, forEach, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy,
-        ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
+        ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE,
+        GeoPose} from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { myAgentName, myAgentId, myAgentColor } from '@src/stateStore';
@@ -51,6 +52,8 @@
     import type webxr from '../core/engines/webxr';
     import ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
+
+    import QrScanner from 'qr-scanner';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -259,6 +262,34 @@
                         }
                     }
 
+                    let qrLocalizationEnabled = true;
+                    if (qrLocalizationEnabled) {
+                        const getGeopose = async () => {
+                            if (!image || imageWidth == null || imageHeight == null || cameraIntrinsics == null) {
+                                throw new Error('Expected image to exist but it didnt');
+                            }
+                            const img = await image;
+                            return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }>((resolve, reject) => {
+                                QrScanner.scanImage(img)
+                                    .then(scanResult => {
+                                        console.log(scanResult)
+                                        const qrGeoPose = JSON.parse(scanResult);
+                                        console.log(qrGeoPose)
+                                        //if (qrGeoPose.position && qrGeoPose.quaternion) {
+                                            console.log("YEE")
+                                            resolve({ cameraGeoPose: qrGeoPose });
+                                        //}
+                                    })
+                                    .catch(error => {
+                                        console.log(error || 'No QR code found.');
+                                        reject('No QR code found.');
+                                    });
+                            });
+                        };
+                        doLocalization({ floorPose, getGeopose });
+                        return;
+                    };
+
                     const getGeopose = async () => {
                         if (!image || imageWidth == null || imageHeight == null || cameraIntrinsics == null) {
                             throw new Error('Expected image to exist but it didnt');
@@ -368,7 +399,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
+        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -384,7 +415,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({ cameraGeoPose: selfEstimatedGeoPose, optionalScrs: [] });
+                    resolve({ cameraGeoPose: selfEstimatedGeoPose });
                 });
                 return;
             }
