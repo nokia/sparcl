@@ -54,6 +54,21 @@
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
 
     import QrScanner from 'qr-scanner';
+    //import cv from "@techstark/opencv-js"
+    //cv.onRuntimeInitialized = () => {
+    //    console.log("OpenCV.js is ready!");
+    //    console.log(cv.getBuildInformation());
+    //};
+    import cvReadyPromise, { MatVector } from "@techstark/opencv-js";
+    async function getOpenCv() {
+        const cv = await cvReadyPromise;
+        console.log("OpenCV.js is ready!");
+        //console.log(cv.getBuildInformation());
+        return cv;
+    }
+
+    import { Homography } from "homography";
+
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -262,6 +277,7 @@
                         }
                     }
 
+                    // use QR code (optional)
                     let qrLocalizationEnabled = true;
                     if (qrLocalizationEnabled) {
                         const getGeopose = async () => {
@@ -269,27 +285,161 @@
                                 throw new Error('Expected image to exist but it didnt');
                             }
                             const img = await image;
+                            const cv = await getOpenCv();
                             return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }>((resolve, reject) => {
-                                QrScanner.scanImage(img)
+                                QrScanner.scanImage(img, {returnDetailedScanResult:true})
                                     .then(scanResult => {
-                                        console.log(scanResult)
-                                        const qrGeoPose = JSON.parse(scanResult);
-                                        console.log(qrGeoPose)
-                                        //if (qrGeoPose.position && qrGeoPose.quaternion) {
-                                            console.log("YEE")
-                                            resolve({ cameraGeoPose: qrGeoPose });
-                                        //}
+                                        //console.log("scanResult:");
+                                        //console.log(scanResult);
+
+                                        //console.log(scanResult.cornerPoints);
+                                        // cornerPoints in this order: topleft, topright, bottomright, bottomleft
+
+/// using OpenCV
+
+                                        const tmpCornerPointsImage = [
+                                            scanResult.cornerPoints[0].x, scanResult.cornerPoints[0].y,
+                                            scanResult.cornerPoints[1].x, scanResult.cornerPoints[1].y,
+                                            scanResult.cornerPoints[2].x, scanResult.cornerPoints[2].y,
+                                            scanResult.cornerPoints[3].x, scanResult.cornerPoints[3].y,
+                                        ];
+                                        const cornerPointsImage = cv.matFromArray(4, 2, cv.CV_64F, tmpCornerPointsImage);
+                                        //cornerPointsImage.data64F[0*2 + 0] = scanResult.cornerPoints[0].x;
+                                        //cornerPointsImage.data64F[0*2 + 1] = scanResult.cornerPoints[0].y;
+                                        //cornerPointsImage.data64F[1*2 + 0] = scanResult.cornerPoints[1].x;
+                                        //cornerPointsImage.data64F[1*2 + 1] = scanResult.cornerPoints[1].y;
+                                        //cornerPointsImage.data64F[2*2 + 0] = scanResult.cornerPoints[2].x;
+                                        //cornerPointsImage.data64F[2*2 + 1] = scanResult.cornerPoints[2].y;
+                                        //cornerPointsImage.data64F[3*2 + 0] = scanResult.cornerPoints[3].x;
+                                        //cornerPointsImage.data64F[3*2 + 1] = scanResult.cornerPoints[3].y;
+
+                                        console.log("cornerPointsImage:");
+                                        console.log(cornerPointsImage.size());
+                                        console.log("cornerPointsImage:");
+                                        console.log(cornerPointsImage.data64F);
+
+                                        const cornerPointsCode = cv.matFromArray(4,2, cv.CV_64F, [
+                                            0.0, 0.0,
+                                            1.0, 0.0,
+                                            1.0, 1.0,
+                                            0.0, 1.0
+                                        ]);
+                                        console.log("cornerPointsCode:");
+                                        console.log(cornerPointsCode.data64F);
+                                        const H = cv.findHomography(cornerPointsImage, cornerPointsCode, cv.RANSAC);
+                                        console.log("CV Homography:");
+                                        console.log(H.data64F);
+
+                                        // decompose homography matrix to pose
+                                        let rvec = new cv.Mat(); let rvecs = new cv.MatVector(); rvecs.push_back(rvec);
+                                        let tvec = new cv.Mat(); let tvecs = new cv.MatVector(); tvecs.push_back(tvec);
+                                        let nvec = new cv.Mat(); let nvecs = new cv.MatVector(); nvecs.push_back(nvec);
+                                        const cameraMatrix = cv.matFromArray(3, 3, cv.CV_64F, [cameraIntrinsics.fx, 0, cameraIntrinsics.cx, 0, cameraIntrinsics.fy, cameraIntrinsics.cy, 0, 0, 1]);
+                                        console.log("cameraMatrix:");
+                                        console.log(cameraMatrix.data64F);
+                                        const distCoeffs = cv.matFromArray(1, 5, cv.CV_64F, [0,0,0,0,0]);
+                                        console.log("distCoeffs:");
+                                        console.log(distCoeffs.data64F);
+                                        const ret = cv.decomposeHomographyMat(H, cameraMatrix, rvecs, tvecs, nvecs);
+                                        console.log("ret:");
+                                        console.log(ret);
+                                        let rres = rvecs.get(0);
+                                        let tres = tvecs.get(0);
+                                        let nres = nvecs.get(0);
+                                        console.log("rvec:");
+                                        console.log(rres.data64F);
+                                        console.log("tvec:");
+                                        console.log(tres.data64F);
+                                        console.log("nvec:");
+                                        console.log(nres.data64F);
+                                        //rvec.delete(); rvecs.delete(); rres.delete();
+                                        //tvec.delete(); tvecs.delete(); tres.delete();
+                                        //nvec.delete(); nvecs.delete(); nres.delete();
+
+
+                                        const success = cv.solvePnP(cornerPointsCode, cornerPointsImage, cameraMatrix, distCoeffs, rvec, tvec);
+                                        console.log("rvec:");
+                                        console.log(rvec.data64F);
+                                        console.log("tvec:");
+                                        console.log(tvec.data64F);
+
+
+/// using Homography.js
+                                        const dstPoints = [
+                                            [0.0, 0.0],
+                                            [1.0, 0.0],
+                                            [1.0, 1.0],
+                                            [0.0, 1.0]
+                                        ];
+                                        const srcPoints = [
+                                            [scanResult.cornerPoints[0].x, scanResult.cornerPoints[0].y],
+                                            [scanResult.cornerPoints[1].x, scanResult.cornerPoints[1].y],
+                                            [scanResult.cornerPoints[2].x, scanResult.cornerPoints[2].y],
+                                            [scanResult.cornerPoints[3].x, scanResult.cornerPoints[3].y]
+                                        ];
+                                        console.log("srcPoints:");
+                                        console.log(srcPoints);
+                                        console.log("dstPoints:");
+                                        console.log(dstPoints);
+                                        // Create a Homography object
+                                        const myHomography = new Homography("projective");
+                                        // Set the reference points
+                                        myHomography.setSourcePoints(srcPoints, null, imageWidth, imageHeight, false);
+                                        myHomography.setDestinyPoints(dstPoints, true);
+                                        console.log("JS Homography:");
+                                        console.log(myHomography._transformMatrix);
+                                        // Warp your image
+                                        //const resultImage = myHomography.warp(img, true);
+                                        //resultImage.then( (img:HTMLImageElement ) => {
+                                        //    document.body.appendChild(img);
+                                        //});
+
+
+/*
+                                        const camImage = new Image();
+                                        camImage.src = img;
+                                        const newDiv = document.createElement("qr");
+                                        document.body.appendChild(newDiv);
+                                        const qrImg = myHomography.warp(); //No parameters warp will reuse the previously setted image
+                                        const ctx = document.getElementById("qr")!.getContext("2d");
+                                        // Clear the canvas and draw the new image (using putImageData instead of drawImage for performance reasons)
+                                        ctx.clearRect(0, 0, imageWidth, imageHeight);
+                                        ctx.putImageData(qrImg, Math.min(dstPoints[0][0], dstPoints[2][0]), Math.min(dstPoints[0][1], dstPoints[2][1]));
+                                        await new Promise(resolve => setTimeout(resolve, 0.1)); // Just a trick for forcing canvas to refresh
+*/
+
+///
+                                        try {
+                                            const qrGeoPose = JSON.parse(scanResult.data);
+                                            console.log(qrGeoPose);
+                                            //if (qrGeoPose.position && qrGeoPose.quaternion) {
+                                                console.log("YEE")
+                                                $context.isLocalizing = false;
+                                                $context.isLocalized = true;
+                                                resolve({ cameraGeoPose: qrGeoPose });
+                                            //}
+
+                                        } catch (error) {
+                                            console.log('Error:', error);
+                                            $context.isLocalizing = false;
+                                            $context.isLocalized = false;
+                                            reject('could not parse QR code')
+                                        }
                                     })
                                     .catch(error => {
                                         console.log(error || 'No QR code found.');
+                                        $context.isLocalizing = false;
+                                        $context.isLocalized = false;
                                         reject('No QR code found.');
                                     });
+
                             });
                         };
                         doLocalization({ floorPose, getGeopose });
                         return;
                     };
 
+                    // use VPS
                     const getGeopose = async () => {
                         if (!image || imageWidth == null || imageHeight == null || cameraIntrinsics == null) {
                             throw new Error('Expected image to exist but it didnt');
